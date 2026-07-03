@@ -1,4 +1,3 @@
-using Radknee.Generics;
 using Radknee.MovementFramework;
 using Radknee.MovementFramework.Examples;
 using System.Collections.Generic;
@@ -55,7 +54,7 @@ namespace Radknee.Gameplay
             List<MovementProvider> defaultMovementProviders = CreateDefaultMovementProviders();
 
             DefaultMode defaultMode = new(defaultMovementProviders);
-            
+
             List<MovementMode> movementModes = new()
             {
                 defaultMode
