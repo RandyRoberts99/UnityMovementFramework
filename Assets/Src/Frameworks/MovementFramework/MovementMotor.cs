@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Radknee.MovementFramework
 {
-    public class MovementMotor : MonoBehaviour, IForceProvider, IRotationProvider
+    public class MovementMotor : IForceProvider, IRotationProvider
     {
         private List<MovementMode> _modes;
         private MovementMode _currentMode;
@@ -18,7 +18,7 @@ namespace Radknee.MovementFramework
             return _modes.Find(state => state is U);
         }
 
-        MovementMotor(List<MovementMode> modes)
+        public MovementMotor(List<MovementMode> modes)
         {
             _modes = modes;
         }
@@ -31,14 +31,15 @@ namespace Radknee.MovementFramework
                 _currentMode?.Start();
             }
 
+            _currentMode.Process();
+
             MovementMode nextState = (MovementMode)_currentMode.Switch();
             if (nextState != null)
             {
                 _currentMode.End();
+                _currentMode = nextState;
                 nextState.Start();
             }
-
-            _currentMode.Process();
         }
     }
 }

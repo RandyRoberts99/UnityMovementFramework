@@ -4,15 +4,15 @@ using UnityEngine;
 
 namespace Radknee.MovementFramework
 {
-    public abstract class MovementState : IState, IForceProvider, IRotationProvider
+    public abstract class MovementState : IState
     {
-        private readonly MovementStateMachine<IState> _movementStateMachine;
+        private readonly MovementProvider _movementProvider;
         public Vector3 Velocity { get; }
         public Quaternion Rotation { get; }
 
-        public MovementState(MovementStateMachine<IState> movementStateMachine)
+        public MovementState(MovementProvider movementProvider)
         {
-            _movementStateMachine = movementStateMachine;
+            _movementProvider = movementProvider;
         }
         public abstract void Start();
         public abstract void Process();
