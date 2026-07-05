@@ -5,10 +5,10 @@ namespace Radknee.MovementFramework.Examples
 {
     public class DefaultMode : MovementMode
     {
-        public DefaultMode(List<MovementProvider> movementProviders) : base(movementProviders)
-        {
+        public DefaultMode()
+        { 
+        
         }
-
         public override void Start()
         {
             // no-op
@@ -27,6 +27,17 @@ namespace Radknee.MovementFramework.Examples
         public override IState Switch()
         {
             throw new System.NotImplementedException();
+        }
+
+        public override List<MovementProvider> CreateMovementProviders()
+        {
+            List<MovementProvider> movementProviders = new()
+            {
+                new HorizontalMovementProvider(),
+                new VerticalMovementProvider()
+            };
+
+            return movementProviders;
         }
 
         /// <summary>

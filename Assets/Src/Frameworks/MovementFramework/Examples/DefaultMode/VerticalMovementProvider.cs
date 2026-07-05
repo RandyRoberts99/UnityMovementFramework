@@ -7,13 +7,14 @@ namespace Radknee.MovementFramework.Examples
     {
         public VerticalMovementProvider()
         {
-        }
-
-        public VerticalMovementProvider(List<IState> states)
-        {
-            States = states;
+            States = CreateStates();
             CurrentState = RequestState<GroundedState>();
             CurrentState.Start();
+        }
+
+        public override List<IState> CreateStates()
+        {
+            throw new System.NotImplementedException();
         }
     }
 }
