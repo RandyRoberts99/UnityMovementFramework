@@ -35,5 +35,7 @@ namespace Radknee.MovementFramework
         {
             throw new System.NotImplementedException();
         }
+
+        public abstract List<IState> CreateStates();
     }
 }
