@@ -13,20 +13,31 @@ namespace Radknee.Gameplay
         public Camera characterCamera;
         public CharacterController characterController;
 
+        private IInputContext _inputContext;
+        private IPhysicsContext _physicsContext;
+
         /**
          * The movement motor of the character.
          * This determines how the character moves and rotates.
          */
         private MovementMotor _movementMotor;
 
-        private void OnEnable()
+        void Awake()
         {
+            _inputContext = new InputContext();
+            _physicsContext = new PhysicsContext();
             List<MovementMode> movementModes = CreateMovementModes();
             _movementMotor = new MovementMotor(movementModes);
         }
 
         void FixedUpdate()
         {
+            if (_movementMotor == null)
+            {
+                Debug.LogError("MovementMotor is not initialized. Please ensure that the MovementController is enabled and Awake() has been called.");
+                return;
+            }
+
             _movementMotor.Process();
 
             Rotate(_movementMotor.Rotation);
@@ -51,7 +62,7 @@ namespace Radknee.Gameplay
         /// <returns></returns>
         private List<MovementMode> CreateMovementModes()
         {
-            DefaultMode defaultMode = new();
+            DefaultMode defaultMode = new(_inputContext, _physicsContext);
 
             List<MovementMode> movementModes = new()
             {

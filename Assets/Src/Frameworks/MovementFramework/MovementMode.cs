@@ -6,9 +6,13 @@ namespace Radknee.MovementFramework
 {
     public abstract class MovementMode : IState, IForceProvider, IRotationProvider
     {
-        private List<MovementProvider> _movementProviders;
+        public IInputContext _inputContext;
+        public IPhysicsContext _physicsContext;
+
+        public List<MovementProvider> _movementProviders;
         public Vector3 Velocity { get; private set; }
         public Quaternion Rotation { get; private set; }
+
         public abstract void Start();
         public abstract void Process();
         public abstract void End();

@@ -11,7 +11,7 @@ namespace Radknee.Generics
     {
         List<IState> States { get; }
         IState CurrentState { get; }
-        IState RequestState<IState>();
+        IState RequestState<T>() where T : IState;
         void Process();
     }
 }

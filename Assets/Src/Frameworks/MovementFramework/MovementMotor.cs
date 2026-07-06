@@ -39,5 +39,16 @@ namespace Radknee.MovementFramework
                 nextState.Start();
             }
         }
+
+        public void SwitchMode<T>() where T : MovementMode
+        {
+            MovementMode nextMode = GetState<T>();
+            if (nextMode != null && nextMode != _currentMode)
+            {
+                _currentMode?.End();
+                _currentMode = nextMode;
+                _currentMode.Start();
+            }
+        }
     }
 }
