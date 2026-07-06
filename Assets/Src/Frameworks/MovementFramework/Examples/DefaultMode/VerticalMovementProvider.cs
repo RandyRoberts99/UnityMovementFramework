@@ -5,8 +5,11 @@ namespace Radknee.MovementFramework.Examples
 {
     public class VerticalMovementProvider : MovementProvider
     {
-        public VerticalMovementProvider()
+        public VerticalMovementProvider(IInputContext inputContext, IPhysicsContext physicsContext)
         {
+            InputContext = inputContext;
+            PhysicsContext = physicsContext;
+
             States = CreateStates();
             CurrentState = RequestState<GroundedState>();
             CurrentState.Start();
@@ -14,7 +17,12 @@ namespace Radknee.MovementFramework.Examples
 
         public override List<IState> CreateStates()
         {
-            throw new System.NotImplementedException();
+            List<IState> states = new()
+            {
+                new GroundedState(this),
+                new JumpingState(this),
+            };
+            return states;
         }
     }
 }

@@ -5,8 +5,11 @@ namespace Radknee.MovementFramework.Examples
 {
     public class HorizontalMovementProvider : MovementProvider
     {
-        public HorizontalMovementProvider() 
-        { 
+        public HorizontalMovementProvider(IInputContext inputContext, IPhysicsContext physicsContext) 
+        {
+            InputContext = inputContext;
+            PhysicsContext = physicsContext;
+
             States = CreateStates();
             CurrentState = RequestState<IdleState>();
             CurrentState.Start();

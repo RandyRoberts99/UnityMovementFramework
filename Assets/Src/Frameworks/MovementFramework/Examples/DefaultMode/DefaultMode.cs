@@ -5,10 +5,14 @@ namespace Radknee.MovementFramework.Examples
 {
     public class DefaultMode : MovementMode
     {
-        public DefaultMode()
-        { 
-        
+        public DefaultMode(IInputContext inputContext, IPhysicsContext physicsContext)
+        {
+            _inputContext = inputContext;
+            _physicsContext = physicsContext;
+
+            _movementProviders = CreateMovementProviders();
         }
+
         public override void Start()
         {
             // no-op
@@ -16,25 +20,28 @@ namespace Radknee.MovementFramework.Examples
 
         public override void Process()
         {
-            // Handle the default movement mode logic.
+            foreach (var provider in _movementProviders)
+            {
+                provider.Process();
+            }
         }
 
         public override void End()
         {
-            // Clean up the default movement mode.
+            // no-op
         }
 
         public override IState Switch()
         {
-            throw new System.NotImplementedException();
+            return null;
         }
 
         public override List<MovementProvider> CreateMovementProviders()
         {
             List<MovementProvider> movementProviders = new()
             {
-                new HorizontalMovementProvider(),
-                new VerticalMovementProvider()
+                new HorizontalMovementProvider(_inputContext, _physicsContext),
+                new VerticalMovementProvider(_inputContext, _physicsContext)
             };
 
             return movementProviders;

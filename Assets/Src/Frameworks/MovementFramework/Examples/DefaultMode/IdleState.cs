@@ -1,4 +1,5 @@
 using Radknee.Generics;
+using UnityEngine;
 
 namespace Radknee.MovementFramework.Examples
 {
@@ -10,22 +11,27 @@ namespace Radknee.MovementFramework.Examples
 
         public override void Start()
         {
-            throw new System.NotImplementedException();
+            // no-op
         }
 
         public override void Process()
         {
-            throw new System.NotImplementedException();
+            // no-op
         }
 
         public override void End()
         {
-            throw new System.NotImplementedException();
+            // no-op
         }
 
         public override IState Switch()
         {
-            throw new System.NotImplementedException();
+            if (movementProvider.InputContext.MovementInput != Vector2.zero)
+            {
+                return movementProvider.RequestState<MovingState>();
+            }
+
+            return null;
         }
     }
 }
