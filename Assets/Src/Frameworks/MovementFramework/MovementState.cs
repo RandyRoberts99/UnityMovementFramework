@@ -18,5 +18,8 @@ namespace Radknee.MovementFramework
         public abstract void Process();
         public abstract void End();
         public abstract IState Switch();
+
+        public abstract void ProcessMovement();
+        public abstract void ProcessRotation();
     }
 }

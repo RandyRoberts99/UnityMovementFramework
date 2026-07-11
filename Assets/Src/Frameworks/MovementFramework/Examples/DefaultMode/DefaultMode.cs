@@ -1,5 +1,6 @@
 using Radknee.Generics;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace Radknee.MovementFramework.Examples
 {
@@ -20,9 +21,11 @@ namespace Radknee.MovementFramework.Examples
 
         public override void Process()
         {
+            Velocity = Vector3.zero;
             foreach (var provider in _movementProviders)
             {
                 provider.Process();
+                Velocity += provider.Velocity;
             }
         }
 
