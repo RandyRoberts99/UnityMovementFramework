@@ -8,9 +8,9 @@ namespace Radknee.MovementFramework
     {
         public IInputContext _inputContext;
         public IPhysicsContext _physicsContext;
-
         public List<MovementProvider> _movementProviders;
-        public Vector3 Velocity { get; private set; }
+
+        public Vector3 Velocity { get; set; }
         public Quaternion Rotation { get; private set; }
 
         public abstract void Start();

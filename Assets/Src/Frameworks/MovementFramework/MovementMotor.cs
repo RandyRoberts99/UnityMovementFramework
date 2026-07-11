@@ -29,8 +29,6 @@ namespace Radknee.MovementFramework
                 _currentMode?.Start();
             }
 
-            _currentMode.Process();
-
             MovementMode nextState = (MovementMode)_currentMode.Switch();
             if (nextState != null)
             {
@@ -38,6 +36,10 @@ namespace Radknee.MovementFramework
                 _currentMode = nextState;
                 nextState.Start();
             }
+
+            _currentMode.Process();
+
+            Velocity = _currentMode.Velocity;
         }
 
         public void SwitchMode<T>() where T : MovementMode

@@ -1,5 +1,6 @@
 using Radknee.MovementFramework;
 using Radknee.MovementFramework.Examples;
+using Radknee.Services;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -24,10 +25,23 @@ namespace Radknee.Gameplay
 
         void Awake()
         {
-            _inputContext = new InputContext();
-            _physicsContext = new PhysicsContext();
+            _ = ServiceManager.RegisterService<InputService>(new InputService());
+
+            _inputContext = ServiceManager.GetService<InputService>().InputContext;
+
             List<MovementMode> movementModes = CreateMovementModes();
             _movementMotor = new MovementMotor(movementModes);
+        }
+
+        private void Update()
+        {
+            if (_inputContext == null)
+            {
+                Debug.LogError("InputContext is not initialized. Please ensure that the InputService is registered and Awake() has been called.");
+                return;
+            }
+
+            ServiceManager.Process();
         }
 
         void FixedUpdate()

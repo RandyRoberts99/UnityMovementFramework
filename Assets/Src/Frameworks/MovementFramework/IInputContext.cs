@@ -7,12 +7,13 @@ namespace Radknee.MovementFramework
     /// </summary>
     public interface IInputContext
     {
-        Vector2 MovementInput { get; }
-        Vector2 LookInput { get; }
-        bool JumpPressed { get; }
-        bool JumpReleased { get; }
-        bool JumpBuffered { get; }
-        bool SprintPressed { get; }
-        bool CrouchPressed { get; }
+        Vector2 MovementInput { get; set; }
+        Vector2 LookInput { get; set; }
+        float LookSensitivity { get; set; }
+        bool JumpPressed { get; set; }
+        bool JumpReleased { get; set; }
+        bool JumpBuffered { get; set; }
+        bool SprintPressed { get; set; }
+        bool CrouchPressed { get; set; }
     }
 }
