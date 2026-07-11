@@ -17,7 +17,7 @@ namespace Radknee.MovementFramework.Examples
 
         public override void Process()
         {
-            movementProvider.Velocity = new Vector3(movementProvider.InputContext.MovementInput.x, 0, movementProvider.InputContext.MovementInput.y) * 5;
+            movementProvider.Velocity = new Vector3(movementProvider.InputContext.MovementInput.x, 0, movementProvider.InputContext.MovementInput.y) * movementProvider.PhysicsContext.MovementSpeed;
         }
 
         public override void End()

@@ -6,6 +6,7 @@ using UnityEngine;
 
 namespace Radknee.Gameplay
 {
+    [DefaultExecutionOrder(-100)]
     [RequireComponent(typeof(CharacterController))]
     public class MovementController : MonoBehaviour
     {
@@ -25,12 +26,19 @@ namespace Radknee.Gameplay
 
         void Awake()
         {
-            _ = ServiceManager.RegisterService<InputService>(new InputService());
-
-            _inputContext = ServiceManager.GetService<InputService>().InputContext;
+            CreateServices();
 
             List<MovementMode> movementModes = CreateMovementModes();
             _movementMotor = new MovementMotor(movementModes);
+        }
+
+        private void CreateServices()
+        {
+            _ = ServiceManager.RegisterService<InputService>(new InputService());
+            _ = ServiceManager.RegisterService<PhysicsService>(new PhysicsService());
+
+            _inputContext = ServiceManager.GetService<InputService>().InputContext;
+            _physicsContext = ServiceManager.GetService<PhysicsService>().PhysicsContext;
         }
 
         private void Update()

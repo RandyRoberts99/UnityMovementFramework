@@ -7,8 +7,10 @@ namespace Radknee.MovementFramework
     /// </summary>
     public interface IPhysicsContext
     {
-        // Where we are trying to get to. This is used for things like pathfinding and steering.
-        Vector3 TargetPosition { get; set; }
-        Quaternion TargetRotation { get; set; }
+        float MovementSpeed { get; set; }
+        float HorizontalAcceleration { get; set; }
+        float HorizontalDrag { get; set; }
+        float JumpPower { get; set; }
+        float Gravity { get; set; }
     }
 }
