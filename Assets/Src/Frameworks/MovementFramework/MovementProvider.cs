@@ -18,6 +18,7 @@ namespace Radknee.MovementFramework
 
         public Vector3 Velocity { get; set; } = Vector3.zero;
         public Quaternion Rotation { get; set; } = Quaternion.identity;
+        public Quaternion CameraRotation { get; set; } = Quaternion.identity;
 
         public void Process()
         {

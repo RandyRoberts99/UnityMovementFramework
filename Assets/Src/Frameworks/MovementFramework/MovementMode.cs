@@ -12,6 +12,7 @@ namespace Radknee.MovementFramework
 
         public Vector3 Velocity { get; set; }
         public Quaternion Rotation { get; private set; }
+        public Quaternion CameraRotation { get; private set; }
 
         public abstract void Start();
         public abstract void Process();

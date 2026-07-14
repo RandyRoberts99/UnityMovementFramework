@@ -7,8 +7,6 @@ namespace Radknee.MovementFramework
     public abstract class MovementState : IState
     {
         public MovementProvider movementProvider;
-        public Vector3 Velocity { get; }
-        public Quaternion Rotation { get; }
 
         public MovementState(MovementProvider movementProvider)
         {
@@ -18,8 +16,5 @@ namespace Radknee.MovementFramework
         public abstract void Process();
         public abstract void End();
         public abstract IState Switch();
-
-        public abstract void ProcessMovement();
-        public abstract void ProcessRotation();
     }
 }

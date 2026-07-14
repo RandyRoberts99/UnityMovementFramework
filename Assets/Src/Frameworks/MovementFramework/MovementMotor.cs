@@ -10,6 +10,7 @@ namespace Radknee.MovementFramework
 
         public Vector3 Velocity { get; private set; }
         public Quaternion Rotation { get; private set; }
+        public Quaternion CameraRotation { get; private set; }
 
         public MovementMode GetState<U>() where U : MovementMode
         {
@@ -40,6 +41,8 @@ namespace Radknee.MovementFramework
             _currentMode.Process();
 
             Velocity = _currentMode.Velocity;
+            Rotation = _currentMode.Rotation;
+            CameraRotation = _currentMode.CameraRotation;
         }
 
         public void SwitchMode<T>() where T : MovementMode
@@ -51,6 +54,21 @@ namespace Radknee.MovementFramework
                 _currentMode = nextMode;
                 _currentMode.Start();
             }
+        }
+
+        private void Move()
+        {
+
+        }
+
+        private void Rotate()
+        {
+
+        }
+
+        private void RotateCamera()
+        {
+
         }
     }
 }

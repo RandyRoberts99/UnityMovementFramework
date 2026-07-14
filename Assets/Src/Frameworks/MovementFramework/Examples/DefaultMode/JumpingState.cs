@@ -27,15 +27,5 @@ namespace Radknee.MovementFramework.Examples
         {
             throw new System.NotImplementedException();
         }
-
-        public override void ProcessMovement()
-        {
-            throw new System.NotImplementedException();
-        }
-
-        public override void ProcessRotation()
-        {
-            throw new System.NotImplementedException();
-        }
     }
 }
