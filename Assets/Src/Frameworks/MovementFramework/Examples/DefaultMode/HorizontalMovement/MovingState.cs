@@ -1,5 +1,4 @@
 using Radknee.Generics;
-using Unity.VisualScripting.FullSerializer;
 using UnityEngine;
 
 namespace Radknee.MovementFramework.Examples

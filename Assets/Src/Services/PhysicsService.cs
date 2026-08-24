@@ -6,9 +6,9 @@ public class PhysicsService : IService
 {
     public IPhysicsContext PhysicsContext { get; set; }
 
-    public PhysicsService()
+    public PhysicsService(CharacterController characterController)
     {
-        PhysicsContext = new PhysicsContext();
+        PhysicsContext = new PhysicsContext(characterController);
     }
 
     public void Process()

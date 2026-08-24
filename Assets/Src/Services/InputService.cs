@@ -1,6 +1,7 @@
 using UnityEngine;
 using Radknee.MovementFramework;
 using UnityEngine.InputSystem;
+using System;
 
 namespace Radknee.Services
 {
@@ -43,9 +44,9 @@ namespace Radknee.Services
             // Refresh current inputs here
             InputContext.MovementInput = _moveAction.ReadValue<Vector2>();
             InputContext.LookInput = _lookAction.ReadValue<Vector2>();
-            InputContext.JumpPressed = _jumpAction.IsPressed();
-            InputContext.SprintPressed = _sprintAction.IsPressed();
-            InputContext.CrouchPressed = _crouchAction.IsPressed();
+            InputContext.JumpPressed = _jumpAction.triggered;
+            InputContext.SprintPressed = _sprintAction.triggered;
+            InputContext.CrouchPressed = _crouchAction.triggered;
         }
     }
 }

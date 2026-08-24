@@ -7,6 +7,10 @@ namespace Radknee.MovementFramework
     /// </summary>
     public interface IPhysicsContext
     {
+        [Header("References")]
+        CharacterController CharacterController { get; set; }
+
+        [Header("Settings")]
         float MovementSpeed { get; set; }
         float HorizontalAcceleration { get; set; }
         float HorizontalDrag { get; set; }

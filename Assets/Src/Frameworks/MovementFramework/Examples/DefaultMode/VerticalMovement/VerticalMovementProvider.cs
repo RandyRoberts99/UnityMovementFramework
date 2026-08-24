@@ -21,6 +21,7 @@ namespace Radknee.MovementFramework.Examples
             {
                 new GroundedState(this),
                 new JumpingState(this),
+                new FallingState(this)
             };
             return states;
         }

@@ -35,7 +35,7 @@ namespace Radknee.Gameplay
         private void CreateServices()
         {
             _ = ServiceManager.RegisterService<InputService>(new InputService());
-            _ = ServiceManager.RegisterService<PhysicsService>(new PhysicsService());
+            _ = ServiceManager.RegisterService<PhysicsService>(new PhysicsService(characterController));
 
             _inputContext = ServiceManager.GetService<InputService>().InputContext;
             _physicsContext = ServiceManager.GetService<PhysicsService>().PhysicsContext;

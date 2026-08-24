@@ -4,6 +4,11 @@ namespace Radknee.MovementFramework
 {
     public class PhysicsContext : IPhysicsContext
     {
+        public PhysicsContext(CharacterController characterController)
+        {
+            CharacterController = characterController;
+        }
+        public CharacterController CharacterController { get; set; }
         public float MovementSpeed { get; set; } = 5f;
         public float HorizontalAcceleration { get; set; } = 10f;
         public float HorizontalDrag { get; set; } = 5f;
