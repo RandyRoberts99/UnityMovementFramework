@@ -43,7 +43,13 @@ namespace Radknee.Services
 
             // Refresh current inputs here
             InputContext.MovementInput = _moveAction.ReadValue<Vector2>();
-            InputContext.LookInput = _lookAction.ReadValue<Vector2>();
+
+            // Accumulated rather than assigned, for the same reason the jump press is latched:
+            // this runs in Update, which does not line up with FixedUpdate, so assigning would
+            // throw away the delta of any frame that had no physics step. Mouse delta is a
+            // per-frame displacement, so the deltas of the skipped frames have to be summed in
+            // for the motion to survive. The movement layer zeroes it once it has been applied.
+            InputContext.LookInput += _lookAction.ReadValue<Vector2>();
 
             // Latched rather than assigned. This runs in Update while the movement code reads it in
             // FixedUpdate, which does not run on every frame, so overwriting the flag here would

@@ -8,7 +8,20 @@ namespace Radknee.MovementFramework
     public interface IInputContext
     {
         Vector2 MovementInput { get; set; }
+
+        /// <summary>
+        /// Look delta accumulated since the movement layer last drained it, in raw device units.
+        /// Like <see cref="JumpPressed"/> this accumulates rather than being assigned, because
+        /// input is polled in Update while movement runs in FixedUpdate: on a frame with no
+        /// physics step an assignment would overwrite an unread delta and quietly lose mouse
+        /// movement, making sensitivity depend on frame rate. RotatingState drains it and is
+        /// responsible for zeroing it.
+        /// </summary>
         Vector2 LookInput { get; set; }
+
+        /// <summary>
+        /// Multiplier applied to <see cref="LookInput"/> when it is turned into degrees.
+        /// </summary>
         float LookSensitivity { get; set; }
 
         /// <summary>

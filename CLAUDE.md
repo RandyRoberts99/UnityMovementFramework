@@ -30,11 +30,15 @@ Four nested layers, each a state machine or a container of them. Understanding t
 MovementController (MonoBehaviour)  drives everything, owns CharacterController
   └─ MovementMotor                  picks the active MovementMode
        └─ MovementMode              e.g. DefaultMode; holds several providers
-            └─ MovementProvider     e.g. Horizontal, Vertical; one state machine each
+            └─ MovementProvider     Rotation, Horizontal, Vertical; one state machine each
                  └─ MovementState   e.g. Grounded, Jumping, Falling
 ```
 
-**Providers are summed, not chained.** `DefaultMode.Process()` zeroes its velocity, runs every provider, and adds each provider's `Velocity` into the total. Each provider is therefore responsible for a disjoint slice of the vector: `HorizontalMovementProvider` writes X and Z, `VerticalMovementProvider` writes Y. A provider that writes an axis another provider owns will silently double it. New providers must claim an unowned axis or be designed as an additive offset.
+**Providers are summed, not chained.** `DefaultMode.Process()` zeroes its velocity, runs every provider, and adds each provider's `Velocity` into the total. Each provider is therefore responsible for a disjoint slice of the vector: `HorizontalMovementProvider` writes X and Z, `VerticalMovementProvider` writes Y, `RotationProvider` writes none. A provider that writes an axis another provider owns will silently double it. New providers must claim an unowned axis or be designed as an additive offset.
+
+**Rotations compose by multiplication.** Same rule, different operator. `DefaultMode.Process()` resets `Rotation` and `CameraRotation` to identity and multiplies each provider's in, so a provider that produces no rotation contributes nothing — which is why `MovementProvider.Rotation` defaults to identity rather than `default`, since a zeroed quaternion would annihilate the product. Only `RotationProvider` claims either slice today.
+
+**One ordering dependency.** The velocity sum is order-independent, but `RotationProvider` must be registered *before* `HorizontalMovementProvider` in `DefaultMode.CreateMovementProviders()`. `RotatingState` writes `PhysicsContext.YawAngle` and `MovingState` reads it to steer, so the reverse order leaves movement a physics step behind the camera. This is the only place provider order matters; anything else that couples two providers through the context will need the same care.
 
 **State machine contract.** `MovementProvider.Process()` runs `Switch()` first, then `End()`/`Start()` on a transition, then `Process()` on the now-current state. So `Start()` and `Process()` both run on the frame a state is entered.
 
@@ -52,7 +56,16 @@ This is the most important constraint in the codebase and the source of a whole 
 - `MovementController.Update()` calls `ServiceManager.Process()`, which polls input.
 - `MovementController.FixedUpdate()` runs the motor and calls `CharacterController.Move()`.
 
-Rendering frames and physics steps do not correspond one to one, so **any edge-triggered input read in Update is lost unless it is latched.** Reading `InputAction.triggered` or `WasPressedThisFrame()` and acting on it in FixedUpdate will drop inputs intermittently.
+Rendering frames and physics steps do not correspond one to one, so **any input read in Update that is not a steady level is lost unless it is carried over.** Reading `InputAction.triggered` or `WasPressedThisFrame()` and acting on it in FixedUpdate will drop inputs intermittently. `MovementInput` is exempt because it is a level, not an event: sampling it late is merely sampling it late.
+
+Two inputs need carrying over, in two different ways:
+
+| Input | Kind | Carried by | Drained by |
+| --- | --- | --- | --- |
+| `JumpPressed` | edge | latched true, never cleared by the service | `JumpingState.Start()` |
+| `LookInput` | per-frame delta | **summed** by the service, `+=` not `=` | `RotatingState.Process()` |
+
+The look case is the subtler one. Mouse delta is a displacement reported once per frame, so on a frame with no physics step an assignment throws that displacement away for good — and since the number of skipped frames varies with frame rate, so does the total rotation. Summing makes the accumulated delta frame-rate independent. For the same reason `RotatingState` does **not** scale it by `fixedDeltaTime`: it is already a displacement, and scaling a displacement by a time step ties sensitivity to the physics rate.
 
 Jump shows the intended division of labour, and any future edge input (fire, dash, slide) should follow it:
 
@@ -68,6 +81,19 @@ The buffer is single, shared runtime state on the physics context, so **exactly 
 
 `MovementProvider.Process()` is `virtual` so a provider can do work before its states run, and anything overriding it must call `base.Process()` or the state machine stops advancing. The jump buffer used to use that override and no longer does — per-step bookkeeping the states own belongs in the states.
 
+### Rotation
+
+`RotationProvider` owns a single state, `RotatingState`, which integrates the drained look delta into two angles on the physics context and then produces both rotations:
+
+- `PhysicsContext.YawAngle` — the character's heading, wrapped to `[0, 360)`. The **single source of truth for which way the character faces**, and what `MovingState` steers by, so it is also what makes movement relative to the camera. Read it rather than `transform.rotation`: the transform is only rotated by `MovementController` after the whole motor has run, so during a step it still holds the previous step's heading.
+- `PhysicsContext.PitchAngle` — the camera's pitch, clamped to `MinPitchAngle`..`MaxPitchAngle`. Negative looks up, because looking up is a negative rotation about X. The limits stop just short of ±90 so the camera never points exactly along world up, where a yaw/pitch decomposition degenerates.
+
+Both are runtime state, so `PhysicsProvider` must not touch them; only the limits are settings. `RotatingState` implements `IRotationHandler` and `ICameraRotationHandler`, which is what those interfaces were declared for.
+
+**The split is the provider's to make, not the controller's.** `RotatingState.HandleRotation()` yields yaw only and `HandleCameraRotation()` yields pitch only, and `MovementController.Rotate()` assigns them straight across — body from `Rotation`, camera from `CameraRotation`. It no longer pulls euler angles apart. The body must never take pitch, or the capsule tips and `CharacterController` starts fighting the ground; the movement vector must never take pitch either, or looking up walks the character into the air.
+
+**The camera must be a child of the character.** Pitch is written to the camera's *local* rotation so it composes with the body's yaw. A camera parented anywhere else gets pitch but never yaw, and the view will not turn.
+
 Input System runs in its default dynamic-update mode, so `WasPressedThisFrame()` is only meaningful inside Update.
 
 A related trap: `CharacterController.isGrounded` is only true while the controller is actively pushed into the ground. `GroundedState` holds a small downward velocity (`GroundingForce`) instead of zeroing Y for exactly this reason. Zeroing vertical velocity while grounded makes `isGrounded` flicker and the state machine thrash.
@@ -75,9 +101,10 @@ A related trap: `CharacterController.isGrounded` is only true while the controll
 ### PhysicsContext holds all physics state
 
 `IPhysicsContext` is the single home for anything physics-related, both tuning values and evolving
-runtime state such as `CoyoteTimeRemaining`. Movement state that outlives a single state object, or
-is shared between states, goes here rather than onto a provider subclass. That is what keeps states
-free of casts: the context is reachable from any `MovementProvider`.
+runtime state such as `CoyoteTimeRemaining` or `YawAngle`. Movement state that outlives a single
+state object, or is shared between states or between providers, goes here rather than onto a
+provider subclass. That is what keeps states free of casts: the context is reachable from any
+`MovementProvider`.
 
 The context holds two kinds of property and they are written by different owners.
 
@@ -99,11 +126,11 @@ write to a settings property at runtime for the same reason.
 
 Scaffolding that exists but does nothing yet. Do not assume these work.
 
-- **Rotation is never produced.** No provider or mode ever assigns `Rotation` or `CameraRotation`, so both stay identity. `MovementController.Rotate()` then forces `transform.rotation` and the camera's local rotation to zero every FixedUpdate. Looking around is not implemented, and the character cannot face any direction but world-forward.
-- **Movement is not camera-relative.** `MovingState` maps input straight onto world X and Z.
+- **Look sensitivity is not tunable.** `InputService.SetInputContext()` hardcodes `InputContext.LookSensitivity = 1f` and reasserts it every Update, so nothing else can hold a value there. One degree per unit of raw mouse delta is fast; that literal is the knob to turn. There is no `InputProvider` scene component mirroring `PhysicsProvider`, which is where an inspector-driven value would belong.
+- **The cursor is never locked.** Mouse look works without it, but the OS cursor stays visible and can leave the game window. `Cursor.lockState = CursorLockMode.Locked` belongs in a game or input manager, not in the movement framework.
 - **No air control distinction.** The horizontal provider runs identically whether grounded or airborne, giving instant full-speed direction changes mid-jump.
 - `HorizontalAcceleration` and `HorizontalDrag` exist on the physics context but nothing reads them; `MovingState` sets velocity directly from `MovementSpeed`.
-- `IMovementHandler`, `IRotationHandler`, `ICameraRotationHandler` are declared and unimplemented. `MovementMotor.Move()`, `Rotate()`, `RotateCamera()` are empty.
+- `IMovementHandler` is declared and unimplemented; `MovingState` sets velocity in `Process()` directly. `IRotationHandler` and `ICameraRotationHandler` *are* implemented, by `RotatingState`. `MovementMotor.Move()`, `Rotate()`, `RotateCamera()` are empty.
 - `DefaultMode.CanWallrun()`, `CanClimb()`, `CanSlide()` return false; only one mode is registered.
 
 ## Conventions

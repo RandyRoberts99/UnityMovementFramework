@@ -35,6 +35,18 @@ public class PhysicsProvider : MonoBehaviour
     [Range(0f, 1f)]
     public float jumpCutMultiplier = 0.5f;
 
+    [Header("Look")]
+    [Tooltip("How far the camera may pitch up. Negative; keep just short of -90.")]
+    [Range(-89.9f, 0f)]
+    public float minPitchAngle = -89f;
+    [Tooltip("How far the camera may pitch down. Positive; keep just short of 90.")]
+    [Range(0f, 89.9f)]
+    public float maxPitchAngle = 89f;
+
+    // YawAngle and PitchAngle are deliberately absent. They are runtime state owned by
+    // RotatingState, and Update() below reasserts everything it knows about on every frame, so a
+    // field here would stamp over the player's look direction each frame and freeze the camera.
+
     private void Start()
     {
         _physicsContext = ServiceManager.GetService<PhysicsService>().PhysicsContext;
@@ -63,5 +75,7 @@ public class PhysicsProvider : MonoBehaviour
         _physicsContext.CoyoteTime = coyoteTime;
         _physicsContext.JumpBufferDuration = jumpBufferDuration;
         _physicsContext.JumpCutMultiplier = jumpCutMultiplier;
+        _physicsContext.MinPitchAngle = minPitchAngle;
+        _physicsContext.MaxPitchAngle = maxPitchAngle;
     }
 }

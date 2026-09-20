@@ -22,10 +22,20 @@ namespace Radknee.MovementFramework.Examples
         public override void Process()
         {
             Velocity = Vector3.zero;
+            Rotation = Quaternion.identity;
+            CameraRotation = Quaternion.identity;
+
             foreach (var provider in _movementProviders)
             {
                 provider.Process();
+
                 Velocity += provider.Velocity;
+
+                // Rotations compose by multiplication, not addition, but the rule is the same one
+                // the velocity sum follows: identity is the neutral element, so a provider that
+                // produces no rotation contributes nothing and only one provider may own an axis.
+                Rotation *= provider.Rotation;
+                CameraRotation *= provider.CameraRotation;
             }
         }
 
@@ -41,8 +51,12 @@ namespace Radknee.MovementFramework.Examples
 
         public override List<MovementProvider> CreateMovementProviders()
         {
+            // Order matters here, which it does not for the velocity sum. RotationProvider writes
+            // PhysicsContext.YawAngle and HorizontalMovementProvider reads it to steer, so the
+            // rotation provider has to run first or movement lags the camera by a physics step.
             List<MovementProvider> movementProviders = new()
             {
+                new RotationProvider(_inputContext, _physicsContext),
                 new HorizontalMovementProvider(_inputContext, _physicsContext),
                 new VerticalMovementProvider(_inputContext, _physicsContext)
             };

@@ -20,6 +20,10 @@ namespace Radknee.MovementFramework
         public float JumpBufferDuration { get; set; } = 0.15f;
         public float JumpBufferRemaining { get; set; }
         public float CoyoteTimeRemaining { get; set; }
+        public float MinPitchAngle { get; set; } = -89f;
+        public float MaxPitchAngle { get; set; } = 89f;
+        public float YawAngle { get; set; }
+        public float PitchAngle { get; set; }
         public float JumpCutMultiplier { get; set; } = 0.5f;
         public bool JumpCutApplied { get; set; }
     }

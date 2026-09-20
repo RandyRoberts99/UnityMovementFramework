@@ -572,7 +572,10 @@ MonoBehaviour:
   groundingForce: -2
   terminalVelocity: -50
   coyoteTime: 0.12
+  jumpBufferDuration: 0.15
   jumpCutMultiplier: 0.5
+  minPitchAngle: -89
+  maxPitchAngle: 89
 --- !u!4 &972485616
 Transform:
   m_ObjectHideFlags: 0
@@ -735,7 +738,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Radknee.Gameplay.MovementController
   characterTranform: {fileID: 1218402372}
-  characterCamera: {fileID: 1567856094}
+  characterCamera: {fileID: 858264006}
   characterController: {fileID: 1218402368}
 --- !u!143 &1218402368
 CharacterController:

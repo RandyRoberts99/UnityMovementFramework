@@ -26,6 +26,11 @@ namespace Radknee.Gameplay
 
         void Awake()
         {
+            if (characterCamera == null)
+            {
+                Debug.LogError("characterCamera is not assigned. Vertical look will not be applied. Assign the character's child camera in the inspector.");
+            }
+
             CreateServices();
 
             List<MovementMode> movementModes = CreateMovementModes();
@@ -62,7 +67,7 @@ namespace Radknee.Gameplay
 
             _movementMotor.Process();
 
-            Rotate(_movementMotor.Rotation);
+            Rotate(_movementMotor.Rotation, _movementMotor.CameraRotation);
             Move(_movementMotor.Velocity);
         }
 
@@ -71,11 +76,21 @@ namespace Radknee.Gameplay
             characterController.Move(target * Time.fixedDeltaTime);
         }
 
-        private void Rotate(Quaternion target)
+        /// <summary>
+        /// The body takes the character rotation and the camera takes the camera rotation. The
+        /// split is the provider's to make, not this method's: RotationProvider yields yaw in one
+        /// and pitch in the other, so nothing is decomposed here.
+        /// </summary>
+        private void Rotate(Quaternion characterRotation, Quaternion cameraRotation)
         {
-            // Rotate the transform on the Y axis, and rotate the camera up/down on the X axis
-            transform.rotation = Quaternion.Euler(0, target.eulerAngles.y, 0);
-            characterCamera.transform.localRotation = Quaternion.Euler(target.eulerAngles.x, 0, 0);
+            transform.rotation = characterRotation;
+
+            if (characterCamera != null)
+            {
+                // Local, so the camera's pitch composes with the body's yaw rather than replacing
+                // it. The camera has to be a child of the character for this to hold.
+                characterCamera.transform.localRotation = cameraRotation;
+            }
         }
 
         /// <summary>

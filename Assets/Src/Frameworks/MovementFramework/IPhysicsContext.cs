@@ -57,6 +57,35 @@ namespace Radknee.MovementFramework
         float CoyoteTimeRemaining { get; set; }
 
         /// <summary>
+        /// How far the camera may pitch up. Negative, because looking up is a negative rotation
+        /// about X. Kept just short of -90 so the camera never points exactly along world up,
+        /// where the yaw/pitch decomposition degenerates.
+        /// </summary>
+        float MinPitchAngle { get; set; }
+
+        /// <summary>
+        /// How far the camera may pitch down. Positive, and the mirror of
+        /// <see cref="MinPitchAngle"/>.
+        /// </summary>
+        float MaxPitchAngle { get; set; }
+
+        /// <summary>
+        /// The character's heading in degrees about world up. Runtime state rather than a setting:
+        /// RotatingState integrates look input into it every step, and it is the single source of
+        /// truth for which way the character faces. MovingState steers by it, which is what makes
+        /// movement relative to where the player is looking. PhysicsProvider must never write this.
+        /// </summary>
+        float YawAngle { get; set; }
+
+        /// <summary>
+        /// The camera's pitch in degrees about its local X axis, clamped between
+        /// <see cref="MinPitchAngle"/> and <see cref="MaxPitchAngle"/>. Negative looks up. Runtime
+        /// state rather than a setting: RotatingState integrates look input into it every step.
+        /// PhysicsProvider must never write this.
+        /// </summary>
+        float PitchAngle { get; set; }
+
+        /// <summary>
         /// Fraction of upward velocity kept when jump is released while still rising, which is what
         /// makes a tapped jump shorter than a held one. Set to 1 for fixed-height jumps.
         /// </summary>
