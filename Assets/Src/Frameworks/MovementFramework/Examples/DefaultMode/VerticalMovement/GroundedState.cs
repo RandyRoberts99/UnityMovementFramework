@@ -15,25 +15,30 @@ namespace Radknee.MovementFramework.Examples
 
         public override void Process()
         {
-            movementProvider.Velocity = Vector3.zero;
+            // Hold a small downward velocity rather than zeroing it. CharacterController.isGrounded
+            // is only true while the controller is being pushed into the ground, so a velocity of
+            // zero makes it flicker off and the character thrashes between grounded and falling.
+            movementProvider.Velocity = new Vector3(0f, movementProvider.PhysicsContext.GroundingForce, 0f);
+            movementProvider.PhysicsContext.CoyoteTimeRemaining = movementProvider.PhysicsContext.CoyoteTime;
         }
 
         public override void Start()
         {
-            //no-op
+            // no-op, Process() refreshes the coyote countdown on the same step
         }
 
         public override IState Switch()
         {
+            // Checked before the grounded test so a press is not dropped on the frame the
+            // controller first reports airborne.
+            if (movementProvider.PhysicsContext.JumpBufferRemaining > 0f)
+            {
+                return movementProvider.RequestState<JumpingState>();
+            }
+
             if (movementProvider.PhysicsContext.CharacterController.isGrounded == false)
             {
                 return movementProvider.RequestState<FallingState>();
-            }
-
-            if (movementProvider.InputContext.JumpPressed)
-            {
-                Debug.Log("Jumping");
-                return movementProvider.RequestState<JumpingState>();
             }
 
             return null;

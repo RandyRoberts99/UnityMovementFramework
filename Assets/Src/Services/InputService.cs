@@ -18,7 +18,7 @@ namespace Radknee.Services
         private InputAction _sprintAction;
         private InputAction _crouchAction;
 
-        public InputService() 
+        public InputService()
         {
             InputContext = new InputContext();
             _inputActionAsset = InputSystem.actions;
@@ -37,14 +37,25 @@ namespace Radknee.Services
         }
 
         void SetInputContext()
-        {   
+        {
             // Set configuration settings here
             InputContext.LookSensitivity = 1f;
 
             // Refresh current inputs here
             InputContext.MovementInput = _moveAction.ReadValue<Vector2>();
             InputContext.LookInput = _lookAction.ReadValue<Vector2>();
-            InputContext.JumpPressed = _jumpAction.triggered;
+
+            // Latched rather than assigned. This runs in Update while the movement code reads it in
+            // FixedUpdate, which does not run on every frame, so overwriting the flag here would
+            // drop presses. The movement layer clears it once it has taken the press.
+            if (_jumpAction.WasPressedThisFrame())
+            {
+                InputContext.JumpPressed = true;
+            }
+
+            InputContext.JumpHeld = _jumpAction.IsPressed();
+            InputContext.JumpReleased = _jumpAction.WasReleasedThisFrame();
+
             InputContext.SprintPressed = _sprintAction.triggered;
             InputContext.CrouchPressed = _crouchAction.triggered;
         }

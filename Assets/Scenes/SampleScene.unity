@@ -567,8 +567,12 @@ MonoBehaviour:
   movementSpeed: 5
   horizontalAcceleration: 10
   horizontalDrag: 5
-  jumpPower: 15
+  jumpPower: 5
   gravity: -9.81
+  groundingForce: -2
+  terminalVelocity: -50
+  coyoteTime: 0.12
+  jumpCutMultiplier: 0.5
 --- !u!4 &972485616
 Transform:
   m_ObjectHideFlags: 0

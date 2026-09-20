@@ -20,7 +20,7 @@ namespace Radknee.MovementFramework
         public Quaternion Rotation { get; set; } = Quaternion.identity;
         public Quaternion CameraRotation { get; set; } = Quaternion.identity;
 
-        public void Process()
+        public virtual void Process()
         {
             IState nextState = CurrentState.Switch();
             if (nextState != null)
