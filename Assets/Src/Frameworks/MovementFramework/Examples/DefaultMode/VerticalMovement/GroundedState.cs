@@ -29,9 +29,14 @@ namespace Radknee.MovementFramework.Examples
 
         public override IState Switch()
         {
-            // Checked before the grounded test so a press is not dropped on the frame the
-            // controller first reports airborne.
-            if (movementProvider.PhysicsContext.JumpBufferRemaining > 0f)
+            // Tested off the input latch as well as the buffer, and before the grounded check, so
+            // a press is not dropped on the frame the controller first reports airborne.
+            //
+            // Grounded needs no other jump-buffer bookkeeping. It takes the jump on the first
+            // Switch() after any press, so neither the latch nor the buffer can survive here long
+            // enough to need draining or ageing; JumpingState.Start() clears both on take-off.
+            if (movementProvider.InputContext.JumpPressed
+                || movementProvider.PhysicsContext.JumpBufferRemaining > 0f)
             {
                 return movementProvider.RequestState<JumpingState>();
             }

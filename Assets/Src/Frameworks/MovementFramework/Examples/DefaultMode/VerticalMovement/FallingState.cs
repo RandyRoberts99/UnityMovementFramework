@@ -15,6 +15,8 @@ namespace Radknee.MovementFramework.Examples
 
         public override void Process()
         {
+            UpdateJumpBuffer();
+
             movementProvider.PhysicsContext.CoyoteTimeRemaining -= Time.fixedDeltaTime;
 
             Vector3 velocity = movementProvider.Velocity;
@@ -36,14 +38,42 @@ namespace Radknee.MovementFramework.Examples
                 return movementProvider.RequestState<GroundedState>();
             }
 
-            // Coyote time: a jump pressed just after walking off a ledge still counts.
+            // Coyote time: a jump pressed just after walking off a ledge still counts. The latch is
+            // read alongside the buffer because UpdateJumpBuffer() runs in Process(), which is
+            // after Switch(); testing the buffer alone would delay every jump by a physics step.
             if (movementProvider.PhysicsContext.CoyoteTimeRemaining > 0f
-                && movementProvider.PhysicsContext.JumpBufferRemaining > 0f)
+                && (movementProvider.InputContext.JumpPressed
+                    || movementProvider.PhysicsContext.JumpBufferRemaining > 0f))
             {
                 return movementProvider.RequestState<JumpingState>();
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Takes the latched press off the input context and turns it into a pending jump that ages
+        /// out, so a press made on the way down still fires if the ground arrives within the buffer
+        /// window. Input is polled in Update but states run in FixedUpdate, so the press arrives as
+        /// a latch to be cleared here rather than an edge that could be missed.
+        ///
+        /// Falling is the state a buffered press has to survive, so the ageing lives here rather
+        /// than on the provider. JumpingState keeps its own copy for the rise; GroundedState needs
+        /// none, since it spends a press immediately.
+        /// </summary>
+        private void UpdateJumpBuffer()
+        {
+            if (movementProvider.InputContext.JumpPressed)
+            {
+                movementProvider.InputContext.JumpPressed = false;
+                movementProvider.PhysicsContext.JumpBufferRemaining = movementProvider.PhysicsContext.JumpBufferDuration;
+                return;
+            }
+
+            if (movementProvider.PhysicsContext.JumpBufferRemaining > 0f)
+            {
+                movementProvider.PhysicsContext.JumpBufferRemaining -= Time.fixedDeltaTime;
+            }
         }
     }
 }

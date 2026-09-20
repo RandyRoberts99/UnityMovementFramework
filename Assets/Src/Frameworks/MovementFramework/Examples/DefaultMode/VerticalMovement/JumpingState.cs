@@ -21,6 +21,8 @@ namespace Radknee.MovementFramework.Examples
 
         public override void Process()
         {
+            UpdateJumpBuffer();
+
             Vector3 velocity = movementProvider.Velocity;
 
             // Releasing jump while still rising trims the remaining upward velocity once, so a tap
@@ -39,8 +41,9 @@ namespace Radknee.MovementFramework.Examples
 
         public override void Start()
         {
-            // Consume the buffered press so it cannot immediately trigger a second jump, and spend
-            // the coyote grace period for the same reason.
+            // Spend the press, both the latch and the buffer, so it cannot immediately trigger a
+            // second jump, and spend the coyote grace period for the same reason.
+            movementProvider.InputContext.JumpPressed = false;
             movementProvider.PhysicsContext.JumpBufferRemaining = 0f;
             movementProvider.PhysicsContext.CoyoteTimeRemaining = 0f;
             movementProvider.PhysicsContext.JumpCutApplied = false;
@@ -60,6 +63,30 @@ namespace Radknee.MovementFramework.Examples
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Buffers a press made during the rise and ages it, so it fires on landing only if the
+        /// ground arrives within the window and expires quietly otherwise. Without this the latch
+        /// would sit set for the whole rise and FallingState would read it as a press made at the
+        /// apex, handing it a full buffer window it was never entitled to.
+        ///
+        /// Deliberately a copy of FallingState.UpdateJumpBuffer(): the buffer is per-state
+        /// bookkeeping, and the two states that can hold a press each own their own.
+        /// </summary>
+        private void UpdateJumpBuffer()
+        {
+            if (movementProvider.InputContext.JumpPressed)
+            {
+                movementProvider.InputContext.JumpPressed = false;
+                movementProvider.PhysicsContext.JumpBufferRemaining = movementProvider.PhysicsContext.JumpBufferDuration;
+                return;
+            }
+
+            if (movementProvider.PhysicsContext.JumpBufferRemaining > 0f)
+            {
+                movementProvider.PhysicsContext.JumpBufferRemaining -= Time.fixedDeltaTime;
+            }
         }
     }
 }

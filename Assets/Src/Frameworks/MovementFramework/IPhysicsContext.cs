@@ -42,8 +42,9 @@ namespace Radknee.MovementFramework
 
         /// <summary>
         /// How much of <see cref="JumpBufferDuration"/> is left on the pending press. Runtime state
-        /// rather than a setting: VerticalMovementProvider refills it from the input latch and ages
-        /// it each step, and the jump clears it on take-off. PhysicsProvider must never write this.
+        /// rather than a setting: FallingState and JumpingState refill it from the input latch and age
+        /// it each step, and JumpingState clears it on take-off. PhysicsProvider must never write
+        /// this.
         /// </summary>
         float JumpBufferRemaining { get; set; }
 
