@@ -12,7 +12,20 @@ namespace Radknee.MovementFramework
 
         [Header("Settings")]
         float MovementSpeed { get; set; }
+        /// <summary>
+        /// How fast horizontal velocity closes on the speed the input asks for, in units per
+        /// second per second. This is the character's inertia while being steered: it governs
+        /// getting up to speed and turning alike, since a change of direction is just a target the
+        /// current velocity is far from. Raise it towards an instant response, lower it for a
+        /// heavier character.
+        /// </summary>
         float HorizontalAcceleration { get; set; }
+
+        /// <summary>
+        /// How fast horizontal velocity bleeds off once the input is released, in units per second
+        /// per second. Separate from <see cref="HorizontalAcceleration"/> so a slide into a stop can
+        /// outlast the run-up. Zero is frictionless: the character keeps coasting until steered.
+        /// </summary>
         float HorizontalDrag { get; set; }
         float JumpPower { get; set; }
         float Gravity { get; set; }

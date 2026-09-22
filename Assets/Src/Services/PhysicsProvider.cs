@@ -9,9 +9,11 @@ public class PhysicsProvider : MonoBehaviour
     [Header("Physics Parameters")]
     [Range(0f, 20f)]
     public float movementSpeed = 5f;
-    [Range(0f, 20f)]
+    [Tooltip("How fast the character gets up to speed and turns. Lower is heavier.")]
+    [Range(0f, 50f)]
     public float horizontalAcceleration = 10f;
-    [Range(0f, 20f)]
+    [Tooltip("How fast the character coasts to a stop once input is released. Zero never stops.")]
+    [Range(0f, 50f)]
     public float horizontalDrag = 5f;
     [Range(0f, 50f)]
     public float jumpPower = 15f;

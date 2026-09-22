@@ -11,7 +11,8 @@ namespace Radknee.MovementFramework.Examples
 
         public override void Start()
         {
-            // no-op
+            // no-op. The velocity carried in from IdleState is the character's inertia, so it must
+            // survive the transition rather than be reset here.
         }
 
         public override void Process()
@@ -28,7 +29,21 @@ namespace Radknee.MovementFramework.Examples
 
             // Yaw only, never the camera's pitch: pitching the movement vector would walk the
             // character into the ground or the air whenever they looked up or down.
-            movementProvider.Velocity = heading * localDirection * movementProvider.PhysicsContext.MovementSpeed;
+            Vector3 targetVelocity = heading * localDirection * movementProvider.PhysicsContext.MovementSpeed;
+
+            // Inertia: the input names a velocity to reach, not one to have. The provider's own
+            // Velocity is what carries between physics steps and between this state and IdleState,
+            // so it is read back rather than overwritten, and the step moves it toward the target
+            // at a fixed rate instead of snapping.
+            //
+            // MoveTowards handles turning as well as speeding up, since a change of direction is
+            // just a target the current velocity is far from; the character arcs through the turn
+            // at the same rate it accelerates. Scaling by fixedDeltaTime makes
+            // HorizontalAcceleration a change in velocity per second rather than per physics step.
+            movementProvider.Velocity = Vector3.MoveTowards(
+                movementProvider.Velocity,
+                targetVelocity,
+                movementProvider.PhysicsContext.HorizontalAcceleration * Time.fixedDeltaTime);
         }
 
         public override void End()

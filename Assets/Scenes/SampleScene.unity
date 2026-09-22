@@ -565,8 +565,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PhysicsProvider
   movementSpeed: 5
-  horizontalAcceleration: 10
-  horizontalDrag: 5
+  horizontalAcceleration: 50
+  horizontalDrag: 15
   jumpPower: 5
   gravity: -9.81
   groundingForce: -2

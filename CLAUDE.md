@@ -81,6 +81,26 @@ The buffer is single, shared runtime state on the physics context, so **exactly 
 
 `MovementProvider.Process()` is `virtual` so a provider can do work before its states run, and anything overriding it must call `base.Process()` or the state machine stops advancing. The jump buffer used to use that override and no longer does — per-step bookkeeping the states own belongs in the states.
 
+### Horizontal movement
+
+The two horizontal states are not "stopped" and "moving" so much as two halves of one inertia
+model, and neither one ever assigns a velocity outright.
+
+- `MovingState` turns the input into a *target* velocity — heading times input times
+  `MovementSpeed` — and moves the current velocity toward it by
+  `HorizontalAcceleration * fixedDeltaTime`. Turning costs the same as speeding up, because a new
+  direction is just a target the current velocity is far from.
+- `IdleState` targets zero instead and closes on it at `HorizontalDrag`, so releasing the input
+  coasts rather than stops. A `HorizontalDrag` of zero is frictionless: the character keeps its
+  velocity until it is steered again.
+
+The velocity that carries between physics steps, and between the two states, is
+`MovementProvider.Velocity` itself: `DefaultMode.Process()` zeroes its own total each step but
+never the providers', so the horizontal provider's slice survives. That is why **neither state may
+zero it in `Start()`** — that assignment is the instant stop the model exists to remove — and why
+the inertia needs no new property on `PhysicsContext`. It is the one piece of movement state
+already reachable from every state without a cast.
+
 ### Rotation
 
 `RotationProvider` owns a single state, `RotatingState`, which integrates the drained look delta into two angles on the physics context and then produces both rotations:
@@ -128,8 +148,7 @@ Scaffolding that exists but does nothing yet. Do not assume these work.
 
 - **Look sensitivity is not tunable.** `InputService.SetInputContext()` hardcodes `InputContext.LookSensitivity = 1f` and reasserts it every Update, so nothing else can hold a value there. One degree per unit of raw mouse delta is fast; that literal is the knob to turn. There is no `InputProvider` scene component mirroring `PhysicsProvider`, which is where an inspector-driven value would belong.
 - **The cursor is never locked.** Mouse look works without it, but the OS cursor stays visible and can leave the game window. `Cursor.lockState = CursorLockMode.Locked` belongs in a game or input manager, not in the movement framework.
-- **No air control distinction.** The horizontal provider runs identically whether grounded or airborne, giving instant full-speed direction changes mid-jump.
-- `HorizontalAcceleration` and `HorizontalDrag` exist on the physics context but nothing reads them; `MovingState` sets velocity directly from `MovementSpeed`.
+- **No air control distinction.** The horizontal provider runs identically whether grounded or airborne, so a jump is steered with exactly the ground's acceleration and drag. Splitting them means new settings on `IPhysicsContext`, not new states.
 - `IMovementHandler` is declared and unimplemented; `MovingState` sets velocity in `Process()` directly. `IRotationHandler` and `ICameraRotationHandler` *are* implemented, by `RotatingState`. `MovementMotor.Move()`, `Rotate()`, `RotateCamera()` are empty.
 - `DefaultMode.CanWallrun()`, `CanClimb()`, `CanSlide()` return false; only one mode is registered.
 
