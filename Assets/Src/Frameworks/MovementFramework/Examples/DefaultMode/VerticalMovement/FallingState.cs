@@ -48,6 +48,18 @@ namespace Radknee.MovementFramework.Examples
                 return movementProvider.RequestState<JumpingState>();
             }
 
+            // Air jump. The ground is gone and the grace period with it, so this one comes out of
+            // AirJumpsRemaining, which JumpingState.Start() debits. Tested after the coyote branch
+            // so a jump the ground still owes the player is never charged for. The latch is read
+            // alongside the buffer for the same reason as above, and the buffer branch is what
+            // catches a press made during the rise that arrived here still pending.
+            if (movementProvider.PhysicsContext.AirJumpsRemaining > 0
+                && (movementProvider.InputContext.JumpPressed
+                    || movementProvider.PhysicsContext.JumpBufferRemaining > 0f))
+            {
+                return movementProvider.RequestState<JumpingState>();
+            }
+
             return null;
         }
 

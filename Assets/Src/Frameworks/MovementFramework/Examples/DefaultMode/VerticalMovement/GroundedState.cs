@@ -20,6 +20,10 @@ namespace Radknee.MovementFramework.Examples
             // zero makes it flicker off and the character thrashes between grounded and falling.
             movementProvider.Velocity = new Vector3(0f, movementProvider.PhysicsContext.GroundingForce, 0f);
             movementProvider.PhysicsContext.CoyoteTimeRemaining = movementProvider.PhysicsContext.CoyoteTime;
+
+            // Air jumps are restocked on the ground for the same reason and in the same place as
+            // the coyote window: standing on something is what makes the character whole again.
+            movementProvider.PhysicsContext.AirJumpsRemaining = movementProvider.PhysicsContext.AirJumpCount;
         }
 
         public override void Start()

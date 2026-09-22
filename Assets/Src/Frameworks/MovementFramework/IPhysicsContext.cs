@@ -111,5 +111,20 @@ namespace Radknee.MovementFramework
         /// starts. PhysicsProvider must never write this.
         /// </summary>
         bool JumpCutApplied { get; set; }
+
+        /// <summary>
+        /// How many further jumps are allowed once the character is off the ground. One gives the
+        /// familiar double jump; zero disables air jumping entirely. The jump off the ground itself
+        /// is not counted here, nor is a jump taken within <see cref="CoyoteTime"/>, since that one
+        /// is the ground's.
+        /// </summary>
+        int AirJumpCount { get; set; }
+
+        /// <summary>
+        /// How many of <see cref="AirJumpCount"/> are left in the current airtime. Runtime state
+        /// rather than a setting: GroundedState refills it while grounded and JumpingState spends
+        /// one on every jump that is not the ground's. PhysicsProvider must never write this.
+        /// </summary>
+        int AirJumpsRemaining { get; set; }
     }
 }

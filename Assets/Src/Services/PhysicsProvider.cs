@@ -36,6 +36,9 @@ public class PhysicsProvider : MonoBehaviour
     [Tooltip("Upward velocity kept when jump is released early. Set to 1 for fixed-height jumps.")]
     [Range(0f, 1f)]
     public float jumpCutMultiplier = 0.5f;
+    [Tooltip("Jumps allowed after leaving the ground. 1 is a double jump; 0 disables air jumping.")]
+    [Range(0, 5)]
+    public int airJumpCount = 1;
 
     [Header("Look")]
     [Tooltip("How far the camera may pitch up. Negative; keep just short of -90.")]
@@ -77,6 +80,7 @@ public class PhysicsProvider : MonoBehaviour
         _physicsContext.CoyoteTime = coyoteTime;
         _physicsContext.JumpBufferDuration = jumpBufferDuration;
         _physicsContext.JumpCutMultiplier = jumpCutMultiplier;
+        _physicsContext.AirJumpCount = airJumpCount;
         _physicsContext.MinPitchAngle = minPitchAngle;
         _physicsContext.MaxPitchAngle = maxPitchAngle;
     }

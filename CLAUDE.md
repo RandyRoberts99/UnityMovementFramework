@@ -81,6 +81,32 @@ The buffer is single, shared runtime state on the physics context, so **exactly 
 
 `MovementProvider.Process()` is `virtual` so a provider can do work before its states run, and anything overriding it must call `base.Process()` or the state machine stops advancing. The jump buffer used to use that override and no longer does — per-step bookkeeping the states own belongs in the states.
 
+### Air jumps
+
+`AirJumpCount` is a setting on `IPhysicsContext` — 1 gives the double jump, 0 disables air jumping —
+and `AirJumpsRemaining` is the runtime counter beside it, so `PhysicsProvider` writes the first and
+must never write the second. There is no air-jump state: the air jump is the ordinary `JumpingState`
+entered from the air, and the whole feature is three small pieces.
+
+- `GroundedState.Process()` refills `AirJumpsRemaining` from `AirJumpCount`, in the same place and
+  for the same reason it refreshes the coyote window.
+- `FallingState.Switch()` and `JumpingState.Switch()` each take the jump when a press or a live
+  buffer meets `AirJumpsRemaining > 0`. The falling branch sits *after* the coyote branch so a jump
+  the ground still owes the player is never charged for; the jumping branch sits after the
+  ceiling/apex check and **returns `JumpingState` itself**. A self-transition is a legal move here:
+  `MovementProvider.Process()` runs `End()` then `Start()` whenever `Switch()` returns non-null, and
+  it is `Start()` that resets the velocity, so a double jump tapped during the rise fires at once
+  rather than waiting for the apex with a buffer that may have aged out.
+- `JumpingState.Start()` decides who pays. A jump with `CharacterController.isGrounded` or
+  `CoyoteTimeRemaining > 0` is the ground's and costs nothing but the coyote window; anything else
+  debits `AirJumpsRemaining`. **Clearing the coyote countdown is what draws that line** — only
+  `GroundedState` refreshes it, so after the first jump the character has no claim on the ground
+  until it lands. `isGrounded` is read alongside it only so a `CoyoteTime` of 0 does not make the
+  jump off the ground itself cost an air jump.
+
+Every air jump is a full `JumpPower` and can be cut short like any other, since `Start()` clears
+`JumpCutApplied`. A weaker second jump would be another setting here, not another state.
+
 ### Horizontal movement
 
 The two horizontal states are not "stopped" and "moving" so much as two halves of one inertia

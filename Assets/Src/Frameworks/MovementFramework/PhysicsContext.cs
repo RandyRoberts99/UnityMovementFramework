@@ -26,5 +26,7 @@ namespace Radknee.MovementFramework
         public float PitchAngle { get; set; }
         public float JumpCutMultiplier { get; set; } = 0.5f;
         public bool JumpCutApplied { get; set; }
+        public int AirJumpCount { get; set; } = 1;
+        public int AirJumpsRemaining { get; set; }
     }
 }
