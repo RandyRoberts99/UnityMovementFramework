@@ -79,7 +79,8 @@ namespace Radknee.Gameplay
         /// <summary>
         /// Draws the character between physics steps by carrying the latest step's result forward
         /// to the moment this frame is drawn. Nothing about earlier steps is kept: the position,
-        /// the summed velocity and the summed rotations of the latest step are all it needs.
+        /// the velocity the move achieved and the summed rotations of the latest step are all it
+        /// needs.
         /// </summary>
         private void Extrapolate()
         {
@@ -87,10 +88,13 @@ namespace Radknee.Gameplay
             // climbs from 0 just after a step towards fixedDeltaTime as the next one comes due.
             float elapsed = Mathf.Clamp(Time.time - Time.fixedTime, 0f, Time.fixedDeltaTime);
 
-            // The summed velocity is what the providers asked for, not what the move achieved, so
-            // it is drawn through anything that stopped the move: into a wall being walked into,
-            // and into the floor by GroundingForce while standing, snapping back on each step.
-            Vector3 position = _physicsContext.Position + _movementMotor.Velocity * elapsed;
+            // The providers' summed velocity as the last move actually carried it out, not as they
+            // asked for it. CharacterController.velocity is the distance that Move() covered over
+            // the step, so whatever a collision cancelled is already gone from it. The raw sum
+            // points into anything blocking the move: while standing it holds GroundingForce, and
+            // drawing by it sank the camera up to 4 cm into the floor and snapped it back on every
+            // step, a vertical sawtooth that made looking up and down judder.
+            Vector3 position = _physicsContext.Position + characterController.velocity * elapsed;
 
             // Look input is a displacement, not a rate, so rotation is carried forward by the input
             // polled since the last step rather than by time. It is read without draining it: the
