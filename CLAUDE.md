@@ -4,9 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Unity 6000.3.9f1 movement-shooter prototype built around a custom, state-machine-driven movement framework. Universal Render Pipeline, new Input System (1.18.0). The README states the repo is a work in progress; the movement framework is the substance of it.
+Unity 6000.3.9f1 prototype of a state-machine-driven **movement framework**, plus a reference sample that uses it. Universal Render Pipeline, new Input System (1.18.0). The repository is movement only: there is no other gameplay code and none is planned, so every feature request is a movement feature, a service, or framework plumbing.
 
-All gameplay code lives under `Assets/Src/`. There are no assembly definition files, so everything compiles into `Assembly-CSharp`.
+All code lives under `Assets/Src/`. There are no assembly definitions, so everything compiles into `Assembly-CSharp`.
+
+Module-specific rules live in nested `CLAUDE.md` files that load when you work in that folder. **Read the one for the module you are about to change before writing code in it:**
+
+- `Assets/Src/Frameworks/MovementFramework/CLAUDE.md` — layers, clocks, contexts, and where movement code goes.
+- `Assets/Src/Services/CLAUDE.md` — services, the service locator, and the settings bridge.
 
 ## Commands
 
@@ -20,178 +25,61 @@ dotnet build Assembly-CSharp.csproj
 
 Editor executable: `E:\Unity\Unity Versions\6000.3.9f1\Editor\Unity.exe`. The only scene is `Assets/Scenes/SampleScene.unity`.
 
-`com.unity.test-framework` is installed but no test assemblies exist yet, so there is no test command.
+`com.unity.test-framework` is installed but no tests exist, so there is no test command yet. See Known gaps before adding the first one.
 
-## Architecture
+## Modules
 
-Four nested layers, each a state machine or a container of them. Understanding the velocity flow between them is the thing that requires reading several files at once.
+| Module | Folder | Namespace | Owns | Must not |
+| --- | --- | --- | --- | --- |
+| Framework core | `Assets/Src/Frameworks/MovementFramework/` (root files only) | `Radknee.MovementFramework` | The four abstract layers, the contexts and their implementations, the output interfaces | Reference `Examples/` or `Services/`; know any concrete mode, provider, state, scene or input asset |
+| Sample | `Assets/Src/Frameworks/MovementFramework/Examples/` | `Radknee.MovementFramework.Examples` | Every concrete mode, provider and state; `MovementController`; camera-effect components; `Inputs.inputactions` | Be referenced by the core or by services |
+| Services | `Assets/Src/Services/` | `Radknee.Services` | `IService` implementations, `ServiceManager`, the `PhysicsProvider` settings bridge, app-level Unity concerns | Contain movement simulation |
+| Generics | `Assets/Src/Generics/` | `Radknee.Generics` | Framework-agnostic contracts (`IState`, `IStateMachine`) | Hold utilities or helpers |
+| Tests | `Assets/Tests/EditMode/`, mirroring the `Src/` folder under test | `Radknee.Tests` | Edit-mode tests, in their own test assembly definition | Be referenced by anything in `Src/` |
 
-```
-MovementController (MonoBehaviour)  drives everything, owns CharacterController
-  └─ MovementMotor                  picks the active MovementMode
-       └─ MovementMode              e.g. DefaultMode; holds several providers
-            └─ MovementProvider     Rotation, Horizontal, Vertical; one state machine each
-                 └─ MovementState   e.g. Grounded, Jumping, Falling
-```
+Dependencies point one way: the sample uses the core, services and generics; services use the core; the core uses only generics.
 
-**Providers are summed, not chained.** `DefaultMode.Process()` zeroes its velocity, runs every provider, and adds each provider's `Velocity` into the total. Each provider is therefore responsible for a disjoint slice of the vector: `HorizontalMovementProvider` writes X and Z, `VerticalMovementProvider` writes Y, `RotationProvider` writes none. A provider that writes an axis another provider owns will silently double it. New providers must claim an unowned axis or be designed as an additive offset.
+## Where things go
 
-**Rotations compose by multiplication.** Same rule, different operator. `DefaultMode.Process()` resets `Rotation` and `CameraRotation` to identity and multiplies each provider's in, so a provider that produces no rotation contributes nothing — which is why `MovementProvider.Rotation` defaults to identity rather than `default`, since a zeroed quaternion would annihilate the product. Only `RotationProvider` claims either slice today.
+| To add… | Put it… |
+| --- | --- |
+| A movement ability (slide, dash, wallrun) | A new mode in `Examples/`, even if it changes only one slice of movement. The framework `CLAUDE.md` has the layer table and folders. |
+| A tuning value | A settings property on `IPhysicsContext`/`PhysicsContext`, exposed by `PhysicsProvider` (the three-file rule in the services `CLAUDE.md`). |
+| Movement state shared between states or providers, physics or not (timers, crouch height) | A runtime property on `IPhysicsContext`/`PhysicsContext`. It is the movement context, despite the name. |
+| A player resource that is spent and regenerates (stamina, dash charges) | The player-values service and its `IPlayerContext`. Planned, not built: see the services `CLAUDE.md`. |
+| A camera effect driven by movement (head bob, FOV kick) | Its own `MonoBehaviour` in `Examples/`, reading the contexts through `ServiceManager`. |
+| A new input | A binding in `Examples/Inputs.inputactions`, read by `InputService` into a property on `IInputContext`/`InputContext`. |
+| Look sensitivity | `InputService`, which is its only writer. |
+| An app-level Unity concern (cursor lock, pause, quit) | A new `IService` in `Services/`, registered in `MovementController.CreateServices()`. |
+| A contract with no movement knowledge | `Generics/`. |
 
-**One ordering dependency.** The velocity sum is order-independent, but `RotationProvider` must be registered *before* `HorizontalMovementProvider` in `DefaultMode.CreateMovementProviders()`. `RotatingState` writes `PhysicsContext.Rotation` and `MovingState` reads it to steer, so the reverse order leaves movement a physics step behind the camera. This is the only place provider order matters; anything else that couples two providers through the context will need the same care.
+Wrong, even though each looks reasonable:
 
-**State machine contract.** `MovementProvider.Process()` runs `Switch()` first, then `End()`/`Start()` on a transition, then `Process()` on the now-current state. So `Start()` and `Process()` both run on the frame a state is entered.
+- A static `MovementUtils` or `QuaternionMath` class for shared code. Duplicate it instead (see Conventions).
+- An edit to `Assets/InputSystem_Actions.inputactions`. It is an unreferenced Unity template; the project-wide actions asset is `Examples/Inputs.inputactions`.
+- An `InputProvider` or any other new settings `MonoBehaviour`. Input already reaches `InputContext` through `InputService`, and `PhysicsProvider` is the only settings bridge.
+- A new context interface such as `IStaminaContext` or `ICrouchContext`. Movement state goes on `IPhysicsContext` and resources on `IPlayerContext`; there is no third option.
+- Cursor locking or other app glue in `MovementController`. It is a service.
+- Head bob or FOV logic in `MovementController.Extrapolate()`. `Extrapolate()` only carries the simulated pose forward; effects are their own component.
+- A concrete mode, provider or state in the framework root. The core stays abstract.
+- A new handler interface, or implementing `IMovementHandler`. The handler interfaces are vestigial.
 
-- `Switch()` is a query. It decides the next state and returns null to stay. Keep it free of side effects.
-- `Start()` is where entry effects belong, including consuming an input latch.
-- Every `MovementState` subclass takes the base `MovementProvider` in its constructor, uniformly. States must never narrow that parameter or cast to a concrete provider type. A state sees the world only through `movementProvider.PhysicsContext` and `movementProvider.InputContext`, both of which exist on every provider regardless of its type.
-- States are **preallocated singletons**. `CreateStates()` builds one instance of each and `RequestState<T>()` finds it by type, so the same object is reused for every visit. States therefore hold no mutable fields of their own: anything that varies per entry, such as `JumpCutApplied`, lives in a context and is reset in `Start()`. A field initialized only at construction would be correct on the first visit and stale on every one after it.
+## Before writing code
 
-**Contexts are the only window onto the world.** States never touch Unity singletons directly; they read `IInputContext` and `IPhysicsContext` off their provider. `ServiceManager` is a static service locator populated in `MovementController.Awake()`.
-
-### The Update / FixedUpdate split
-
-This is the most important constraint in the codebase and the source of a whole class of bugs.
-
-- `MovementController.Update()` polls input through `ServiceManager.Process()`, then `Extrapolate()` draws the character by carrying the latest step's result forward.
-- `MovementController.FixedUpdate()` runs `MovementMotor.Process()`, places the character back at `PhysicsContext.Position` with the new rotations, and calls `CharacterController.Move()`. After the move it writes where the character actually stopped to `PhysicsContext.Position`. That is the only runtime state the controller writes, because only it sees the result of `Move()`.
-
-**Rendering is extrapolated, at the top, from what the motor hands over.** The movement framework runs only on the physics clock and knows nothing about drawing. Its outputs are the summed `Velocity` and the composed `Rotation` and `CameraRotation`. `MovementController.Extrapolate()` carries those forward by the seconds since the last step (`Time.time - Time.fixedTime`, clamped to one step). Nothing about earlier steps is kept.
-
-- **Position is `PhysicsContext.Position + CharacterController.velocity × elapsed`.** That is the providers' summed velocity as the last `Move()` actually carried it out. **Never extrapolate by `MovementMotor.Velocity`**, the raw sum: it points into anything blocking the move. While standing it holds `GroundingForce`, which drew the camera up to `2 m/s × 0.02 s` = 4 cm into the floor and snapped it back every step. That vertical sawtooth made pitch visibly choppier than yaw, because it runs along the same axis as the scene moving when you look up and down. Walls did the same sideways.
-- **Rotation is carried forward by pending input, not by time.** The controller turns the motor's rotations by the summed `LookInput` without draining it, applying exactly the turn `RotatingState` will. So the view turns on the frame the mouse moves, and the next step lands on precisely what was drawn. The two copies of that turn, `PitchOf()` included, must be kept in step.
-
-Consequences:
-
-- **The transform lies between steps.** Outside `FixedUpdate` it holds the drawn pose, not the simulated one. Read `PhysicsContext.Position` and `PhysicsContext.Rotation` instead. `Move()` calls `Physics.SyncTransforms()` first, because `autoSyncTransforms` is off and `CharacterController.Move()` starts from the physics scene's copy of the transform, not from the transform itself.
-- **To teleport, write `PhysicsContext.Position`.** The next pass places the character there.
-
-Rendering frames and physics steps do not correspond one to one, so **any input read in Update that is not a steady level is lost unless it is carried over.** Reading `InputAction.triggered` or `WasPressedThisFrame()` and acting on it in FixedUpdate will drop inputs intermittently. `MovementInput` is exempt because it is a level, not an event: sampling it late is merely sampling it late.
-
-Two inputs need carrying over, in two different ways:
-
-| Input | Kind | Carried by | Drained by |
-| --- | --- | --- | --- |
-| `JumpPressed` | edge | latched true, never cleared by the service | `JumpingState.Start()` |
-| `LookInput` | per-frame delta | **summed** by the service, `+=` not `=` | `RotatingState.Process()`; read undrained by `MovementController.Extrapolate()` |
-
-The look case is the subtler one. Mouse delta is a displacement reported once per frame, so on a frame with no physics step an assignment throws that displacement away for good — and since the number of skipped frames varies with frame rate, so does the total rotation. Summing makes the accumulated delta frame-rate independent. For the same reason `RotatingState` does **not** scale it by `fixedDeltaTime`: it is already a displacement, and scaling a displacement by a time step ties sensitivity to the physics rate.
-
-Jump shows the intended division of labour, and any future edge input (fire, dash, slide) should follow it:
-
-- `InputService` only **latches**. It sets `InputContext.JumpPressed` true on the press and never clears it. It owns no timers and knows nothing about buffering.
-- The **states drain and age** the latch, each owning the part of the buffer it needs. `MovementState` stays a bare contract and the provider does nothing; there is no shared helper, so read the three states together:
-  - `FallingState.UpdateJumpBuffer()`, called first thing in its `Process()`, turns the latch into a pending press and counts it down. This is where a buffered press actually has to survive.
-  - `JumpingState.UpdateJumpBuffer()` is a deliberate copy of it, for presses made during the rise. It is not optional: without it the latch sits set for the whole rise and `FallingState` then reads it as a press made at the apex, granting a full buffer window that was never earned.
-  - `GroundedState` has none, on purpose. It takes the jump on the first `Switch()` after any press, so nothing can linger long enough to need ageing.
-- `Switch()` tests `InputContext.JumpPressed` **and** `JumpBufferRemaining`, never the buffer alone. The buffer is refilled in `Process()`, which runs *after* `Switch()`, so testing the buffer by itself would delay every jump by a physics step.
-- `JumpingState.Start()` **consumes** the press by clearing both the latch and `JumpBufferRemaining`.
-
-The buffer is single, shared runtime state on the physics context, so **exactly one provider's states may age it.** Ageing it from the horizontal states as well would halve the window. That is also why the duplication between `FallingState` and `JumpingState` is not worth hoisting: a helper reachable from every state is a helper the horizontal states can wrongly call.
-
-`MovementProvider.Process()` is `virtual` so a provider can do work before its states run, and anything overriding it must call `base.Process()` or the state machine stops advancing. The jump buffer used to use that override and no longer does — per-step bookkeeping the states own belongs in the states.
-### Air jumps
-
-`AirJumpCount` is a setting on `IPhysicsContext` — 1 gives the double jump, 0 disables air jumping —
-and `AirJumpsRemaining` is the runtime counter beside it, so `PhysicsProvider` writes the first and
-must never write the second. There is no air-jump state: the air jump is the ordinary `JumpingState`
-entered from the air, and the whole feature is three small pieces.
-
-- `GroundedState.Process()` refills `AirJumpsRemaining` from `AirJumpCount`, in the same place and
-  for the same reason it refreshes the coyote window.
-- `FallingState.Switch()` and `JumpingState.Switch()` each take the jump when a press or a live
-  buffer meets `AirJumpsRemaining > 0`. The falling branch sits *after* the coyote branch so a jump
-  the ground still owes the player is never charged for; the jumping branch sits after the
-  ceiling/apex check and **returns `JumpingState` itself**. A self-transition is a legal move here:
-  `MovementProvider.Process()` runs `End()` then `Start()` whenever `Switch()` returns non-null, and
-  it is `Start()` that resets the velocity, so a double jump tapped during the rise fires at once
-  rather than waiting for the apex with a buffer that may have aged out.
-- `JumpingState.Start()` decides who pays. A jump with `CharacterController.isGrounded` or
-  `CoyoteTimeRemaining > 0` is the ground's and costs nothing but the coyote window; anything else
-  debits `AirJumpsRemaining`. **Clearing the coyote countdown is what draws that line** — only
-  `GroundedState` refreshes it, so after the first jump the character has no claim on the ground
-  until it lands. `isGrounded` is read alongside it only so a `CoyoteTime` of 0 does not make the
-  jump off the ground itself cost an air jump.
-
-Every air jump is a full `JumpPower` and can be cut short like any other, since `Start()` clears
-`JumpCutApplied`. A weaker second jump would be another setting here, not another state.
-
-### Horizontal movement
-
-The two horizontal states are not "stopped" and "moving" so much as two halves of one inertia
-model, and neither one ever assigns a velocity outright.
-
-- `MovingState` turns the input into a *target* velocity — heading times input times
-  `MovementSpeed` — and moves the current velocity toward it by
-  `HorizontalAcceleration * fixedDeltaTime`. Turning costs the same as speeding up, because a new
-  direction is just a target the current velocity is far from.
-- `IdleState` targets zero instead and closes on it at `HorizontalDrag`, so releasing the input
-  coasts rather than stops. A `HorizontalDrag` of zero is frictionless: the character keeps its
-  velocity until it is steered again.
-
-The velocity that carries between physics steps, and between the two states, is
-`MovementProvider.Velocity` itself: `DefaultMode.Process()` zeroes its own total each step but
-never the providers', so the horizontal provider's slice survives. That is why **neither state may
-zero it in `Start()`** — that assignment is the instant stop the model exists to remove — and why
-the inertia needs no new property on `PhysicsContext`. It is the one piece of movement state
-already reachable from every state without a cast.
-
-### Rotation
-
-`RotationProvider` owns a single state, `RotatingState`, which turns two quaternions on the physics context by the drained look delta and then outputs them. Rotation is held only as quaternions; there are no stored angles.
-
-- `PhysicsContext.Rotation` — the character's heading, a rotation about world up only. The **single source of truth for which way the character faces**, and what `MovingState` steers by, so it is also what makes movement relative to the camera. Read it rather than `transform.rotation`: the transform is only rotated by `MovementController` after the whole motor has run, so during a step it still holds the previous step's heading, and between steps it holds an extrapolated one. Yaw is applied by multiplication and the result normalized, so repeated products cannot drift.
-- `PhysicsContext.CameraRotation` — the camera's pitch, a local rotation about X only, kept within `MinPitchAngle`..`MaxPitchAngle`. Negative looks up, because looking up is a negative rotation about X. A clamp needs an angle, so the pitch is read back out with `PitchOf()`, moved, clamped, and rebuilt. `PitchOf()` is exact because the quaternion holds only `w` and `x`, and `w` stays positive inside ±90. The limits stop just short of ±90 so it never has to read a pitch at the pole.
-- Both start at `Quaternion.identity`, never `default`, since a zeroed quaternion annihilates anything it multiplies.
-
-Both are runtime state, so `PhysicsProvider` must not touch them; only the limits are settings. `RotatingState` implements `IRotationHandler` and `ICameraRotationHandler`, which is what those interfaces were declared for.
-
-**The split is the provider's to make, not the controller's.** `RotatingState.HandleRotation()` yields yaw only and `HandleCameraRotation()` yields pitch only, and `MovementController.Place()` assigns them straight across, with `Extrapolate()` turning each only about its own axis — body from `Rotation`, camera from `CameraRotation`. It no longer pulls euler angles apart. The body must never take pitch, or the capsule tips and `CharacterController` starts fighting the ground; the movement vector must never take pitch either, or looking up walks the character into the air.
-
-**The camera must be a child of the character.** Pitch is written to the camera's *local* rotation so it composes with the body's yaw. A camera parented anywhere else gets pitch but never yaw, and the view will not turn.
-
-Input System runs in its default dynamic-update mode, so `WasPressedThisFrame()` is only meaningful inside Update.
-
-A related trap: `CharacterController.isGrounded` is only true while the controller is actively pushed into the ground. `GroundedState` holds a small downward velocity (`GroundingForce`) instead of zeroing Y for exactly this reason. Zeroing vertical velocity while grounded makes `isGrounded` flicker and the state machine thrash.
-
-### PhysicsContext holds all physics state
-
-`IPhysicsContext` is the single home for anything physics-related, both tuning values and evolving
-runtime state such as `CoyoteTimeRemaining` or `Rotation`. Movement state that outlives a single
-state object, or is shared between states or between providers, goes here rather than onto a
-provider subclass. That is what keeps states free of casts: the context is reachable from any
-`MovementProvider`.
-
-The context holds two kinds of property and they are written by different owners.
-
-**Settings** are owned by the `PhysicsProvider` scene component. Adding one means editing three files
-in step:
-
-1. `IPhysicsContext` — declare the property.
-2. `PhysicsContext` — implement it with a sensible default.
-3. `PhysicsProvider` — add the inspector field and the assignment in `Update()`.
-
-Skipping step 3 means the inspector silently does not control the value.
-
-**Runtime state** is owned by the movement states and must be left out of `PhysicsProvider`.
-`PhysicsProvider.Update()` reasserts every value it knows about on every frame, so adding a runtime
-property there would stamp over it each frame and break whatever depends on it. Nothing else may
-write to a settings property at runtime for the same reason.
-
-## Known gaps
-
-Scaffolding that exists but does nothing yet. Do not assume these work.
-
-- **Look sensitivity is not tunable.** `InputService.SetInputContext()` hardcodes `InputContext.LookSensitivity = 1f` and reasserts it every Update, so nothing else can hold a value there. One degree per unit of raw mouse delta is fast; that literal is the knob to turn. There is no `InputProvider` scene component mirroring `PhysicsProvider`, which is where an inspector-driven value would belong.
-- **The cursor is never locked.** Mouse look works without it, but the OS cursor stays visible and can leave the game window. `Cursor.lockState = CursorLockMode.Locked` belongs in a game or input manager, not in the movement framework.
-- **No air control distinction.** The horizontal provider runs identically whether grounded or airborne, so a jump is steered with exactly the ground's acceleration and drag. Splitting them means new settings on `IPhysicsContext`, not new states.
-- `IMovementHandler` is declared and unimplemented; `MovingState` sets velocity in `Process()` directly. `IRotationHandler` and `ICameraRotationHandler` *are* implemented, by `RotatingState`. `MovementMotor.Move()`, `Rotate()`, `RotateCamera()` are empty.
-- `DefaultMode.CanWallrun()`, `CanClimb()`, `CanSlide()` return false; only one mode is registered.
+1. **Find the owner.** Use the tables above and the module's `CLAUDE.md`, then open the nearest existing file that does something similar and read it together with its neighbours.
+2. **Extend before adding.** A property on `PhysicsContext`, a branch in an existing `Switch()` or a state in an existing provider is usually the answer.
+3. **Justify every new file or class.** Before creating one, say in a sentence why no existing owner fits, and name its folder, namespace and layer (mode, provider, state or service). If the rules here and in the module `CLAUDE.md` do not settle where it goes, ask before creating it.
+4. **Hand over the `.meta`.** A new script needs its `.meta` generated by the Unity editor before the change is complete; say so when handing over.
 
 ## Conventions
 
-- **Do not add a class to hold shared behaviour.** The four layers above are the whole vocabulary, and a new class is warranted only when it is a new *concept* — another mode, provider, or state — never when it is a home for a helper. An intermediate base such as a `VerticalMovementState` between `MovementState` and the vertical states is the wrong answer: it adds a layer to a framework whose layers are the thing you have to hold in your head, plus a file and a `.meta`, to save a few lines. The same goes for a new context interface, where a property on `IPhysicsContext` is nearly always the answer instead.
-- **`MovementState` and `MovementProvider` are contracts, not toolboxes.** `MovementState` declares `Start`/`Process`/`End`/`Switch` and holds the provider reference; that is all it may hold. Behaviour belongs in the concrete state that performs it, even when two states perform something similar — see the duplicated `UpdateJumpBuffer()` in `FallingState` and `JumpingState`. Shared *data* goes on `PhysicsContext`, which is the seam the framework actually provides for it; shared *behaviour* is duplicated or left out, whichever the state genuinely needs. A helper on the base is reachable from every state in every provider, which is how a per-provider concern gets run twice a step.
-- Namespaces are `Radknee.MovementFramework`, `Radknee.MovementFramework.Examples` (the concrete default movement set), `Radknee.Services`, and `Radknee.Generics`. `ServiceManager`, `PhysicsService`, and `PhysicsProvider` sit in the global namespace.
+- **No helper or utility classes, anywhere.** A new class is justified only by a new concept: a mode, provider, state, service, context implementation or camera-effect component. A small function needed in two places is duplicated, with a comment in each copy naming the other and saying to keep them in step (see `PitchOf()` in `MovementController` and `RotatingState`).
+- **Every new file uses its module's `Radknee.*` namespace.** Legacy exceptions, not to be copied or fixed in passing: `ServiceManager`, `PhysicsService` and `PhysicsProvider` are in the global namespace, and `MovementController` is in `Radknee.Gameplay`.
+- **"Provider" means a `MovementProvider` or an `I*Provider` output interface.** `PhysicsProvider` is a legacy name for the settings bridge; do not create more `*Provider` components.
 - Source files use **CRLF** line endings and some carry a UTF-8 BOM, matching Visual Studio output. `core.autocrlf` is false, so writing a file with LF rewrites every line in the diff. Preserve the existing endings when editing.
-- Unity `.meta` files are tracked. A new script needs its `.meta` generated by the editor before the change is complete.
+- Unity `.meta` files are tracked.
+
+## Known gaps
+
+- **The cursor is never locked.** This belongs in a new service.
+- **There are no tests yet.** The first one needs more than a test folder: an assembly definition cannot reference `Assembly-CSharp`, so the test assembly can only see `Src/` once `Src/` has an assembly definition of its own. Ask before adding one, since it changes how the whole project compiles.
