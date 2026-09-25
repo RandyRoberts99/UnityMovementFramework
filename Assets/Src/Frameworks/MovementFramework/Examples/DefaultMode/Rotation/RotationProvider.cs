@@ -9,7 +9,7 @@ namespace Radknee.MovementFramework.Examples
     /// nothing to the sum DefaultMode builds.
     ///
     /// This provider must be registered before HorizontalMovementProvider. MovingState steers by
-    /// PhysicsContext.YawAngle, which RotatingState writes, so running it second would leave
+    /// PhysicsContext.Rotation, which RotatingState writes, so running it second would leave
     /// movement a physics step behind the camera on every turn.
     /// </summary>
     public class RotationProvider : MovementProvider

@@ -70,9 +70,9 @@ namespace Radknee.MovementFramework
         float CoyoteTimeRemaining { get; set; }
 
         /// <summary>
-        /// How far the camera may pitch up. Negative, because looking up is a negative rotation
-        /// about X. Kept just short of -90 so the camera never points exactly along world up,
-        /// where the yaw/pitch decomposition degenerates.
+        /// How far the camera may pitch up, in degrees. Negative, because looking up is a negative
+        /// rotation about X. Kept just short of -90 so <see cref="CameraRotation"/> never points
+        /// exactly along world up, where reading the pitch back out of it degenerates.
         /// </summary>
         float MinPitchAngle { get; set; }
 
@@ -83,20 +83,32 @@ namespace Radknee.MovementFramework
         float MaxPitchAngle { get; set; }
 
         /// <summary>
-        /// The character's heading in degrees about world up. Runtime state rather than a setting:
-        /// RotatingState integrates look input into it every step, and it is the single source of
-        /// truth for which way the character faces. MovingState steers by it, which is what makes
-        /// movement relative to where the player is looking. PhysicsProvider must never write this.
+        /// The character's heading: a rotation about world up only, never pitched or rolled.
+        /// Runtime state rather than a setting: RotatingState turns it by the look input every
+        /// step, and it is the single source of truth for which way the character faces.
+        /// MovingState steers by it, which is what makes movement relative to where the player is
+        /// looking. PhysicsProvider must never write this.
         /// </summary>
-        float YawAngle { get; set; }
+        Quaternion Rotation { get; set; }
 
         /// <summary>
-        /// The camera's pitch in degrees about its local X axis, clamped between
-        /// <see cref="MinPitchAngle"/> and <see cref="MaxPitchAngle"/>. Negative looks up. Runtime
-        /// state rather than a setting: RotatingState integrates look input into it every step.
-        /// PhysicsProvider must never write this.
+        /// The camera's pitch, as a rotation about its local X axis only, kept between
+        /// <see cref="MinPitchAngle"/> and <see cref="MaxPitchAngle"/>. Negative looks up. Local,
+        /// so it composes with <see cref="Rotation"/> rather than restating it. Runtime state:
+        /// RotatingState turns it by the look input every step. PhysicsProvider must never write
+        /// this.
         /// </summary>
-        float PitchAngle { get; set; }
+        Quaternion CameraRotation { get; set; }
+
+        /// <summary>
+        /// Where the latest physics step left the character, which is where the next one starts.
+        /// Runtime state, and the one piece of it the movement states cannot produce: only
+        /// MovementController sees where CharacterController.Move() actually stopped, so it
+        /// reports the result here after every move, the way the controller reports isGrounded.
+        /// Read this rather than the transform, which between steps holds an extrapolated pose.
+        /// Writing it teleports the character. PhysicsProvider must never write this.
+        /// </summary>
+        Vector3 Position { get; set; }
 
         /// <summary>
         /// Fraction of upward velocity kept when jump is released while still rising, which is what

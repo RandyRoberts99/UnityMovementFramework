@@ -38,7 +38,7 @@ MovementController (MonoBehaviour)  drives everything, owns CharacterController
 
 **Rotations compose by multiplication.** Same rule, different operator. `DefaultMode.Process()` resets `Rotation` and `CameraRotation` to identity and multiplies each provider's in, so a provider that produces no rotation contributes nothing — which is why `MovementProvider.Rotation` defaults to identity rather than `default`, since a zeroed quaternion would annihilate the product. Only `RotationProvider` claims either slice today.
 
-**One ordering dependency.** The velocity sum is order-independent, but `RotationProvider` must be registered *before* `HorizontalMovementProvider` in `DefaultMode.CreateMovementProviders()`. `RotatingState` writes `PhysicsContext.YawAngle` and `MovingState` reads it to steer, so the reverse order leaves movement a physics step behind the camera. This is the only place provider order matters; anything else that couples two providers through the context will need the same care.
+**One ordering dependency.** The velocity sum is order-independent, but `RotationProvider` must be registered *before* `HorizontalMovementProvider` in `DefaultMode.CreateMovementProviders()`. `RotatingState` writes `PhysicsContext.Rotation` and `MovingState` reads it to steer, so the reverse order leaves movement a physics step behind the camera. This is the only place provider order matters; anything else that couples two providers through the context will need the same care.
 
 **State machine contract.** `MovementProvider.Process()` runs `Switch()` first, then `End()`/`Start()` on a transition, then `Process()` on the now-current state. So `Start()` and `Process()` both run on the frame a state is entered.
 
@@ -53,8 +53,18 @@ MovementController (MonoBehaviour)  drives everything, owns CharacterController
 
 This is the most important constraint in the codebase and the source of a whole class of bugs.
 
-- `MovementController.Update()` calls `ServiceManager.Process()`, which polls input.
-- `MovementController.FixedUpdate()` runs the motor and calls `CharacterController.Move()`.
+- `MovementController.Update()` polls input through `ServiceManager.Process()`, then `Extrapolate()` draws the character by carrying the latest step's result forward.
+- `MovementController.FixedUpdate()` runs `MovementMotor.Process()`, places the character back at `PhysicsContext.Position` with the new rotations, and calls `CharacterController.Move()`. After the move it writes where the character actually stopped to `PhysicsContext.Position`. That is the only runtime state the controller writes, because only it sees the result of `Move()`.
+
+**Rendering is extrapolated, at the top, from what the motor hands over.** The movement framework runs only on the physics clock and knows nothing about drawing. Its outputs are the summed `Velocity` and the composed `Rotation` and `CameraRotation`. `MovementController.Extrapolate()` carries those forward by the seconds since the last step (`Time.time - Time.fixedTime`, clamped to one step). Nothing about earlier steps is kept.
+
+- **Position is `PhysicsContext.Position + MovementMotor.Velocity × elapsed`.** It uses the summed velocity the providers *asked for*, deliberately rather than the velocity the move achieved. So the drawn position overshoots wherever a move is blocked, and the next step snaps it back. While standing, `GroundingForce` draws the character and camera up to `2 m/s × 0.02 s` = 4 cm into the floor. Walking into a wall draws it up to one step of speed into the wall. If either becomes visible, the fix is to extrapolate by the displacement `Move()` actually made.
+- **Rotation is carried forward by pending input, not by time.** The controller turns the motor's rotations by the summed `LookInput` without draining it, applying exactly the turn `RotatingState` will. So the view turns on the frame the mouse moves, and the next step lands on precisely what was drawn. The two copies of that turn, `PitchOf()` included, must be kept in step.
+
+Consequences:
+
+- **The transform lies between steps.** Outside `FixedUpdate` it holds the drawn pose, not the simulated one. Read `PhysicsContext.Position` and `PhysicsContext.Rotation` instead. `Move()` calls `Physics.SyncTransforms()` first, because `autoSyncTransforms` is off and `CharacterController.Move()` starts from the physics scene's copy of the transform, not from the transform itself.
+- **To teleport, write `PhysicsContext.Position`.** The next pass places the character there.
 
 Rendering frames and physics steps do not correspond one to one, so **any input read in Update that is not a steady level is lost unless it is carried over.** Reading `InputAction.triggered` or `WasPressedThisFrame()` and acting on it in FixedUpdate will drop inputs intermittently. `MovementInput` is exempt because it is a level, not an event: sampling it late is merely sampling it late.
 
@@ -63,7 +73,7 @@ Two inputs need carrying over, in two different ways:
 | Input | Kind | Carried by | Drained by |
 | --- | --- | --- | --- |
 | `JumpPressed` | edge | latched true, never cleared by the service | `JumpingState.Start()` |
-| `LookInput` | per-frame delta | **summed** by the service, `+=` not `=` | `RotatingState.Process()` |
+| `LookInput` | per-frame delta | **summed** by the service, `+=` not `=` | `RotatingState.Process()`; read undrained by `MovementController.Extrapolate()` |
 
 The look case is the subtler one. Mouse delta is a displacement reported once per frame, so on a frame with no physics step an assignment throws that displacement away for good — and since the number of skipped frames varies with frame rate, so does the total rotation. Summing makes the accumulated delta frame-rate independent. For the same reason `RotatingState` does **not** scale it by `fixedDeltaTime`: it is already a displacement, and scaling a displacement by a time step ties sensitivity to the physics rate.
 
@@ -80,7 +90,6 @@ Jump shows the intended division of labour, and any future edge input (fire, das
 The buffer is single, shared runtime state on the physics context, so **exactly one provider's states may age it.** Ageing it from the horizontal states as well would halve the window. That is also why the duplication between `FallingState` and `JumpingState` is not worth hoisting: a helper reachable from every state is a helper the horizontal states can wrongly call.
 
 `MovementProvider.Process()` is `virtual` so a provider can do work before its states run, and anything overriding it must call `base.Process()` or the state machine stops advancing. The jump buffer used to use that override and no longer does — per-step bookkeeping the states own belongs in the states.
-
 ### Air jumps
 
 `AirJumpCount` is a setting on `IPhysicsContext` — 1 gives the double jump, 0 disables air jumping —
@@ -129,14 +138,15 @@ already reachable from every state without a cast.
 
 ### Rotation
 
-`RotationProvider` owns a single state, `RotatingState`, which integrates the drained look delta into two angles on the physics context and then produces both rotations:
+`RotationProvider` owns a single state, `RotatingState`, which turns two quaternions on the physics context by the drained look delta and then outputs them. Rotation is held only as quaternions; there are no stored angles.
 
-- `PhysicsContext.YawAngle` — the character's heading, wrapped to `[0, 360)`. The **single source of truth for which way the character faces**, and what `MovingState` steers by, so it is also what makes movement relative to the camera. Read it rather than `transform.rotation`: the transform is only rotated by `MovementController` after the whole motor has run, so during a step it still holds the previous step's heading.
-- `PhysicsContext.PitchAngle` — the camera's pitch, clamped to `MinPitchAngle`..`MaxPitchAngle`. Negative looks up, because looking up is a negative rotation about X. The limits stop just short of ±90 so the camera never points exactly along world up, where a yaw/pitch decomposition degenerates.
+- `PhysicsContext.Rotation` — the character's heading, a rotation about world up only. The **single source of truth for which way the character faces**, and what `MovingState` steers by, so it is also what makes movement relative to the camera. Read it rather than `transform.rotation`: the transform is only rotated by `MovementController` after the whole motor has run, so during a step it still holds the previous step's heading, and between steps it holds an extrapolated one. Yaw is applied by multiplication and the result normalized, so repeated products cannot drift.
+- `PhysicsContext.CameraRotation` — the camera's pitch, a local rotation about X only, kept within `MinPitchAngle`..`MaxPitchAngle`. Negative looks up, because looking up is a negative rotation about X. A clamp needs an angle, so the pitch is read back out with `PitchOf()`, moved, clamped, and rebuilt. `PitchOf()` is exact because the quaternion holds only `w` and `x`, and `w` stays positive inside ±90. The limits stop just short of ±90 so it never has to read a pitch at the pole.
+- Both start at `Quaternion.identity`, never `default`, since a zeroed quaternion annihilates anything it multiplies.
 
 Both are runtime state, so `PhysicsProvider` must not touch them; only the limits are settings. `RotatingState` implements `IRotationHandler` and `ICameraRotationHandler`, which is what those interfaces were declared for.
 
-**The split is the provider's to make, not the controller's.** `RotatingState.HandleRotation()` yields yaw only and `HandleCameraRotation()` yields pitch only, and `MovementController.Rotate()` assigns them straight across — body from `Rotation`, camera from `CameraRotation`. It no longer pulls euler angles apart. The body must never take pitch, or the capsule tips and `CharacterController` starts fighting the ground; the movement vector must never take pitch either, or looking up walks the character into the air.
+**The split is the provider's to make, not the controller's.** `RotatingState.HandleRotation()` yields yaw only and `HandleCameraRotation()` yields pitch only, and `MovementController.Place()` assigns them straight across, with `Extrapolate()` turning each only about its own axis — body from `Rotation`, camera from `CameraRotation`. It no longer pulls euler angles apart. The body must never take pitch, or the capsule tips and `CharacterController` starts fighting the ground; the movement vector must never take pitch either, or looking up walks the character into the air.
 
 **The camera must be a child of the character.** Pitch is written to the camera's *local* rotation so it composes with the body's yaw. A camera parented anywhere else gets pitch but never yaw, and the view will not turn.
 
@@ -147,7 +157,7 @@ A related trap: `CharacterController.isGrounded` is only true while the controll
 ### PhysicsContext holds all physics state
 
 `IPhysicsContext` is the single home for anything physics-related, both tuning values and evolving
-runtime state such as `CoyoteTimeRemaining` or `YawAngle`. Movement state that outlives a single
+runtime state such as `CoyoteTimeRemaining` or `Rotation`. Movement state that outlives a single
 state object, or is shared between states or between providers, goes here rather than onto a
 provider subclass. That is what keeps states free of casts: the context is reachable from any
 `MovementProvider`.

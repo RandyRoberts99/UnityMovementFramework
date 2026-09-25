@@ -7,6 +7,10 @@ namespace Radknee.MovementFramework
         public PhysicsContext(CharacterController characterController)
         {
             CharacterController = characterController;
+
+            // Starts where the character was placed in the scene, so the first frames draw it there
+            // rather than at the origin.
+            Position = characterController.transform.position;
         }
         public CharacterController CharacterController { get; set; }
         public float MovementSpeed { get; set; } = 5f;
@@ -22,8 +26,11 @@ namespace Radknee.MovementFramework
         public float CoyoteTimeRemaining { get; set; }
         public float MinPitchAngle { get; set; } = -89f;
         public float MaxPitchAngle { get; set; } = 89f;
-        public float YawAngle { get; set; }
-        public float PitchAngle { get; set; }
+        // Identity, not default: a zeroed quaternion is not a rotation, and anything turned by it
+        // collapses to zero with it.
+        public Quaternion Rotation { get; set; } = Quaternion.identity;
+        public Quaternion CameraRotation { get; set; } = Quaternion.identity;
+        public Vector3 Position { get; set; }
         public float JumpCutMultiplier { get; set; } = 0.5f;
         public bool JumpCutApplied { get; set; }
         public int AirJumpCount { get; set; } = 1;

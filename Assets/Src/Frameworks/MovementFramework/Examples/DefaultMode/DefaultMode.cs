@@ -52,7 +52,7 @@ namespace Radknee.MovementFramework.Examples
         public override List<MovementProvider> CreateMovementProviders()
         {
             // Order matters here, which it does not for the velocity sum. RotationProvider writes
-            // PhysicsContext.YawAngle and HorizontalMovementProvider reads it to steer, so the
+            // PhysicsContext.Rotation and HorizontalMovementProvider reads it to steer, so the
             // rotation provider has to run first or movement lags the camera by a physics step.
             List<MovementProvider> movementProviders = new()
             {

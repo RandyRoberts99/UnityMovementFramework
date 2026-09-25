@@ -48,9 +48,10 @@ public class PhysicsProvider : MonoBehaviour
     [Range(0f, 89.9f)]
     public float maxPitchAngle = 89f;
 
-    // YawAngle and PitchAngle are deliberately absent. They are runtime state owned by
+    // Rotation and CameraRotation are deliberately absent. They are runtime state owned by
     // RotatingState, and Update() below reasserts everything it knows about on every frame, so a
     // field here would stamp over the player's look direction each frame and freeze the camera.
+    // Position is runtime state for the same reason.
 
     private void Start()
     {

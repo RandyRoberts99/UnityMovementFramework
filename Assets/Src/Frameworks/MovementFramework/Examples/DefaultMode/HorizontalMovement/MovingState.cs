@@ -25,10 +25,11 @@ namespace Radknee.MovementFramework.Examples
             // still holds the previous step's heading at this point. RotationProvider is registered
             // before this one precisely so the value here is the one from this step.
             Vector3 localDirection = new(movementProvider.InputContext.MovementInput.x, 0f, movementProvider.InputContext.MovementInput.y);
-            Quaternion heading = Quaternion.Euler(0f, movementProvider.PhysicsContext.YawAngle, 0f);
 
             // Yaw only, never the camera's pitch: pitching the movement vector would walk the
             // character into the ground or the air whenever they looked up or down.
+            Quaternion heading = movementProvider.PhysicsContext.Rotation;
+
             Vector3 targetVelocity = heading * localDirection * movementProvider.PhysicsContext.MovementSpeed;
 
             // Inertia: the input names a velocity to reach, not one to have. The provider's own

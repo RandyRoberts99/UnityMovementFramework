@@ -9,8 +9,10 @@ namespace Radknee.MovementFramework
         private MovementMode _currentMode;
 
         public Vector3 Velocity { get; private set; }
-        public Quaternion Rotation { get; private set; }
-        public Quaternion CameraRotation { get; private set; }
+        // Identity, not default: MovementController may draw a frame before the first physics
+        // step has produced a rotation, and a zeroed quaternion is not a rotation at all.
+        public Quaternion Rotation { get; private set; } = Quaternion.identity;
+        public Quaternion CameraRotation { get; private set; } = Quaternion.identity;
 
         public MovementMode GetState<U>() where U : MovementMode
         {
