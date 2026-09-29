@@ -574,6 +574,7 @@ MonoBehaviour:
   coyoteTime: 0.12
   jumpBufferDuration: 0.15
   jumpCutMultiplier: 0.5
+  airJumpCount: 1
   minPitchAngle: -89
   maxPitchAngle: 89
 --- !u!4 &972485616

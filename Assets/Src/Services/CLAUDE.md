@@ -16,7 +16,7 @@ Framework infrastructure: the service locator, the services that fill the moveme
 - An **edge** (button pressed) is **latched**: set true on the press and never cleared here. The consuming state clears it.
 - A **per-frame delta** (mouse look) is **summed**: `+=`. The consuming state drains it.
 
-`InputService` owns no timers and no buffering. `LookSensitivity` is assigned here and nowhere else.
+`InputService` owns no timers and no buffering, and writes no settings: `LookSensitivity` belongs to `InputProvider`.
 
 **`SprintPressed` and `CrouchPressed` are not safe to use as they are.** They are assigned from `InputAction.triggered`, an unlatched edge, so a state reading them in FixedUpdate will miss presses. Before any state consumes one, convert it the way `JumpPressed` works: latch it here and clear it in the consuming state's `Start()`. If it is really a hold, assign it from `IsPressed()` as a level instead.
 
@@ -30,7 +30,7 @@ Movement timers and state (coyote time, the jump buffer, crouch height, an abili
 
 ## `PhysicsProvider`: the settings bridge
 
-`PhysicsProvider` is the scene component that exposes `PhysicsContext` settings in the inspector, and the only such component. Adding a setting means editing three files in step:
+`PhysicsProvider` is the scene component that exposes `PhysicsContext` settings in the inspector. Its only sibling is `InputProvider`, which does the same for `InputContext` settings (`LookSensitivity`) and follows the same rules: it reasserts its fields every frame, so it must never write raw input, and nothing else writes the settings it owns. Adding a setting means editing three files in step:
 
 1. `IPhysicsContext` — declare the property.
 2. `PhysicsContext` — implement it with a sensible default.

@@ -33,7 +33,7 @@ Editor executable: `E:\Unity\Unity Versions\6000.3.9f1\Editor\Unity.exe`. The on
 | --- | --- | --- | --- | --- |
 | Framework core | `Assets/Src/Frameworks/MovementFramework/` (root files only) | `Radknee.MovementFramework` | The four abstract layers, the contexts and their implementations, the output interfaces | Reference `Examples/` or `Services/`; know any concrete mode, provider, state, scene or input asset |
 | Sample | `Assets/Src/Frameworks/MovementFramework/Examples/` | `Radknee.MovementFramework.Examples` | Every concrete mode, provider and state; `MovementController`; camera-effect components; `Inputs.inputactions` | Be referenced by the core or by services |
-| Services | `Assets/Src/Services/` | `Radknee.Services` | `IService` implementations, `ServiceManager`, the `PhysicsProvider` settings bridge, app-level Unity concerns | Contain movement simulation |
+| Services | `Assets/Src/Services/` | `Radknee.Services` | `IService` implementations, `ServiceManager`, the `PhysicsProvider` and `InputProvider` settings bridges, app-level Unity concerns | Contain movement simulation |
 | Generics | `Assets/Src/Generics/` | `Radknee.Generics` | Framework-agnostic contracts (`IState`, `IStateMachine`) | Hold utilities or helpers |
 | Tests | `Assets/Tests/EditMode/`, mirroring the `Src/` folder under test | `Radknee.Tests` | Edit-mode tests, in their own test assembly definition | Be referenced by anything in `Src/` |
 
@@ -49,7 +49,7 @@ Dependencies point one way: the sample uses the core, services and generics; ser
 | A player resource that is spent and regenerates (stamina, dash charges) | The player-values service and its `IPlayerContext`. Planned, not built: see the services `CLAUDE.md`. |
 | A camera effect driven by movement (head bob, FOV kick) | Its own `MonoBehaviour` in `Examples/`, reading the contexts through `ServiceManager`. |
 | A new input | A binding in `Examples/Inputs.inputactions`, read by `InputService` into a property on `IInputContext`/`InputContext`. |
-| Look sensitivity | `InputService`, which is its only writer. |
+| Look sensitivity, or another input setting | A field on `InputProvider`, which is the only writer of `InputContext` settings. |
 | An app-level Unity concern (cursor lock, pause, quit) | A new `IService` in `Services/`, registered in `MovementController.CreateServices()`. |
 | A contract with no movement knowledge | `Generics/`. |
 
@@ -57,7 +57,7 @@ Wrong, even though each looks reasonable:
 
 - A static `MovementUtils` or `QuaternionMath` class for shared code. Duplicate it instead (see Conventions).
 - An edit to `Assets/InputSystem_Actions.inputactions`. It is an unreferenced Unity template; the project-wide actions asset is `Examples/Inputs.inputactions`.
-- An `InputProvider` or any other new settings `MonoBehaviour`. Input already reaches `InputContext` through `InputService`, and `PhysicsProvider` is the only settings bridge.
+- A third settings `MonoBehaviour`. `PhysicsProvider` bridges `PhysicsContext` settings and `InputProvider` bridges `InputContext` settings; extend one of them.
 - A new context interface such as `IStaminaContext` or `ICrouchContext`. Movement state goes on `IPhysicsContext` and resources on `IPlayerContext`; there is no third option.
 - Cursor locking or other app glue in `MovementController`. It is a service.
 - Head bob or FOV logic in `MovementController.Extrapolate()`. `Extrapolate()` only carries the simulated pose forward; effects are their own component.
@@ -75,7 +75,7 @@ Wrong, even though each looks reasonable:
 
 - **No helper or utility classes, anywhere.** A new class is justified only by a new concept: a mode, provider, state, service, context implementation or camera-effect component. A small function needed in two places is duplicated, with a comment in each copy naming the other and saying to keep them in step (see `PitchOf()` in `MovementController` and `RotatingState`).
 - **Every new file uses its module's `Radknee.*` namespace.** Legacy exceptions, not to be copied or fixed in passing: `ServiceManager`, `PhysicsService` and `PhysicsProvider` are in the global namespace, and `MovementController` is in `Radknee.Gameplay`.
-- **"Provider" means a `MovementProvider` or an `I*Provider` output interface.** `PhysicsProvider` is a legacy name for the settings bridge; do not create more `*Provider` components.
+- **"Provider" means a `MovementProvider` or an `I*Provider` output interface.** `PhysicsProvider` and `InputProvider` are the settings bridges, named before this rule; do not create more `*Provider` components.
 - Source files use **CRLF** line endings and some carry a UTF-8 BOM, matching Visual Studio output. `core.autocrlf` is false, so writing a file with LF rewrites every line in the diff. Preserve the existing endings when editing.
 - Unity `.meta` files are tracked.
 

@@ -38,8 +38,7 @@ namespace Radknee.Services
 
         void SetInputContext()
         {
-            // Set configuration settings here
-            InputContext.LookSensitivity = 1f;
+            // Settings such as LookSensitivity are not written here; InputProvider owns them.
 
             // Refresh current inputs here
             InputContext.MovementInput = _moveAction.ReadValue<Vector2>();
