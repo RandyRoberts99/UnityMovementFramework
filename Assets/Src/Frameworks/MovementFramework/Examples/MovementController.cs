@@ -125,11 +125,6 @@ namespace Radknee.Gameplay
 
         private void Move(Vector3 target)
         {
-            // CharacterController.Move() starts from the physics scene's copy of the transform,
-            // not from the transform itself, and autoSyncTransforms is off, so the pose Rotate()
-            // just wrote has to be pushed across explicitly.
-            Physics.SyncTransforms();
-
             characterController.Move(target * Time.fixedDeltaTime);
 
             // Only here is it known where the move actually stopped, which a collision may have

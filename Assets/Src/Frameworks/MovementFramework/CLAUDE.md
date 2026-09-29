@@ -108,8 +108,8 @@ This is the most important constraint in the codebase and the source of a whole 
 
 Consequences:
 
-- **The transform lies between steps.** Outside `FixedUpdate` it holds the drawn pose, not the simulated one. Read `PhysicsContext.Position` and `PhysicsContext.Rotation` instead. `Move()` calls `Physics.SyncTransforms()` first, because `autoSyncTransforms` is off and `CharacterController.Move()` starts from the physics scene's copy of the transform, not from the transform itself.
-- **To teleport, write `PhysicsContext.Position`.** The next pass places the character there.
+- **The transform lies between steps.** Outside `FixedUpdate` it holds the drawn pose, not the simulated one. Read `PhysicsContext.Position` and `PhysicsContext.Rotation` instead. `Move()` does not call `Physics.SyncTransforms()`, which is expensive. `CharacterController.Move()` starts from the physics scene's copy of the transform, and with `autoSyncTransforms` off that copy stays wherever the last `Move()` left it. That is always `PhysicsContext.Position`, because the only transform change since then is the extrapolated pose, and `Rotate()` undoes it before `Move()`.
+- **To teleport, write `PhysicsContext.Position`, set `transform.position` to the same value, and call `Physics.SyncTransforms()` once.** Writing `Position` alone lasts one drawn frame: the next `Move()` starts from the physics scene's stale copy and snaps the character back.
 
 Rendering frames and physics steps do not correspond one to one, so **any input read in Update that is not a steady level is lost unless it is carried over.** Reading `InputAction.triggered` or `WasPressedThisFrame()` and acting on it in FixedUpdate will drop inputs intermittently. `MovementInput` is exempt because it is a level, not an event: sampling it late is merely sampling it late. Input System runs in its default dynamic-update mode, so `WasPressedThisFrame()` is only meaningful inside Update.
 
