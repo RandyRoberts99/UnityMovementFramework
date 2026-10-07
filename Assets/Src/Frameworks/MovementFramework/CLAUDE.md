@@ -43,6 +43,7 @@ Examples/
       HorizontalMovementProvider.cs, IdleState.cs, MovingState.cs
     VerticalMovement/
     Rotation/
+    GroundMotion/
   <Name>Mode/                       a new mode takes the same shape
 ```
 
@@ -75,7 +76,7 @@ MovementController (MonoBehaviour)  drives everything, owns CharacterController
                  └─ MovementState   e.g. Grounded, Jumping, Falling
 ```
 
-**Providers are summed, not chained.** `DefaultMode.Process()` zeroes its velocity, runs every provider, and adds each provider's `Velocity` into the total. Each provider is therefore responsible for a disjoint slice of the vector: `HorizontalMovementProvider` writes X and Z, `VerticalMovementProvider` writes Y, `RotationProvider` writes none. A provider that writes an axis another provider owns will silently double it. New providers must claim an unowned axis or be designed as an additive offset.
+**Providers are summed, not chained.** `DefaultMode.Process()` zeroes its velocity, runs every provider, and adds each provider's `Velocity` into the total. Each provider is therefore responsible for a disjoint slice of the vector: `HorizontalMovementProvider` writes X and Z, `VerticalMovementProvider` writes Y, `RotationProvider` writes none. A provider that writes an axis another provider owns will silently double it. New providers must claim an unowned axis or be designed as an additive offset. `GroundMotionProvider` is the one additive offset: it owns no axis and adds the ground's velocity on all three (see Ground motion).
 
 **Rotations compose by multiplication.** Same rule, different operator. `DefaultMode.Process()` resets `Rotation` and `CameraRotation` to identity and multiplies each provider's in, so a provider that produces no rotation contributes nothing — which is why `MovementProvider.Rotation` defaults to identity rather than `default`, since a zeroed quaternion would annihilate the product. Only `RotationProvider` claims either slice today.
 
@@ -154,6 +155,15 @@ The two horizontal states are not "stopped" and "moving" so much as two halves o
 - `IdleState` targets zero instead and closes on it at `HorizontalDrag`, so releasing the input coasts rather than stops. A `HorizontalDrag` of zero is frictionless: the character keeps its velocity until it is steered again.
 
 The velocity that carries between physics steps, and between the two states, is `MovementProvider.Velocity` itself: `DefaultMode.Process()` zeroes its own total each step but never the providers', so the horizontal provider's slice survives. That is why **neither state may zero it in `Start()`** — that assignment is the instant stop the model exists to remove — and why the inertia needs no new property on `PhysicsContext`. It is the one piece of movement state already reachable from every state without a cast.
+
+## Ground motion
+
+`GroundMotionProvider` carries the character with whatever it stands on. It has two states: `CarriedState` while `isGrounded` and `ReleasedState` otherwise.
+
+- **The ground's velocity is measured, not declared.** Each grounded step, `CarriedState` finds the collider underfoot with a `SphereCast` and records its transform and `localToWorldMatrix` in `PhysicsContext.GroundTransform` and `GroundLocalToWorld`. The next step maps `Position` through the old matrix and the current one; the difference over `fixedDeltaTime` is the velocity. Translation and rotation both come through, and platforms need no component or interface: anything whose transform moves carries the character. Do not add an `IMovingPlatform` for this.
+- **The first step on new ground carries nothing**, because there is no earlier matrix to compare against. `ReleasedState.Start()` clears `GroundTransform` for this reason: landing back on the platform just left must not compare against a matrix several steps stale, which would read as a huge velocity.
+- **Leaving the ground keeps horizontal momentum, not vertical.** `ReleasedState` holds the ground's X and Z unchanged until landing. It drops Y, because a constant offset that gravity never acts on would carry the character upward for the whole flight. On landing, `CarriedState` replaces the momentum with the new ground's velocity, so it stops at once rather than bleeding off.
+- **The platform's transform, not its physics copy, is what is measured.** `MovementController` runs at execution order -100, before scene scripts, so a platform moved in its own `FixedUpdate()` is measured one step after it moves. The character trails it by one step's displacement, a constant offset that never accumulates. A platform must move in `FixedUpdate()`; moving it in `Update()` measures render-rate jitter.
 
 ## Rotation
 

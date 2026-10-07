@@ -138,5 +138,22 @@ namespace Radknee.MovementFramework
         /// one on every jump that is not the ground's. PhysicsProvider must never write this.
         /// </summary>
         int AirJumpsRemaining { get; set; }
+
+        /// <summary>
+        /// What the character stood on at the last physics step, or null when it was airborne or
+        /// on nothing the ground query found. Runtime state rather than a setting: CarriedState
+        /// records it every grounded step so the next step can tell how far the ground has moved
+        /// since, and ReleasedState clears it on leaving the ground. PhysicsProvider must never
+        /// write this.
+        /// </summary>
+        Transform GroundTransform { get; set; }
+
+        /// <summary>
+        /// <see cref="GroundTransform"/>'s local-to-world matrix as it was at the last physics
+        /// step. Set against the ground's current matrix, it says where the ground has carried the
+        /// point the character stands on, rotation included. Runtime state, written beside
+        /// GroundTransform by CarriedState. PhysicsProvider must never write this.
+        /// </summary>
+        Matrix4x4 GroundLocalToWorld { get; set; }
     }
 }

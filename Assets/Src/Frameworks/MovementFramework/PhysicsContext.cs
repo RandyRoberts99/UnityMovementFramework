@@ -35,5 +35,7 @@ namespace Radknee.MovementFramework
         public bool JumpCutApplied { get; set; }
         public int AirJumpCount { get; set; } = 1;
         public int AirJumpsRemaining { get; set; }
+        public Transform GroundTransform { get; set; }
+        public Matrix4x4 GroundLocalToWorld { get; set; } = Matrix4x4.identity;
     }
 }
