@@ -9,9 +9,10 @@ namespace Radknee.MovementFramework.Examples
     /// axis: its velocity is an additive offset on all three, the ground's own velocity where the
     /// character stands, laid over the walking and falling the other providers produce.
     ///
-    /// Its place in DefaultMode's list does not matter. It reads only PhysicsContext.Position and
-    /// CharacterController.isGrounded, which nothing in a step changes before MovementController
-    /// moves the character.
+    /// It reads only PhysicsContext.Position and CharacterController.isGrounded, which nothing in a
+    /// step changes before MovementController moves the character, so nothing need run before it.
+    /// It must run before PushProvider, which reads the PhysicsContext.GroundTransform this
+    /// provider records to leave the ground alone.
     /// </summary>
     public class GroundMotionProvider : MovementProvider
     {

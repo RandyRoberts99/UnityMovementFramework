@@ -54,13 +54,15 @@ namespace Radknee.MovementFramework.Examples
             // Order matters here, which it does not for the velocity sum. RotationProvider writes
             // PhysicsContext.Rotation and HorizontalMovementProvider reads it to steer, so the
             // rotation provider has to run first or movement lags the camera by a physics step.
-            // GroundMotionProvider can go anywhere: it reads only what the last move left behind.
+            // PushProvider has to follow GroundMotionProvider, which records this step's ground for
+            // it to leave alone; otherwise a rising platform both carries and pushes the character.
             List<MovementProvider> movementProviders = new()
             {
                 new RotationProvider(_inputContext, _physicsContext),
                 new HorizontalMovementProvider(_inputContext, _physicsContext),
                 new VerticalMovementProvider(_inputContext, _physicsContext),
-                new GroundMotionProvider(_inputContext, _physicsContext)
+                new GroundMotionProvider(_inputContext, _physicsContext),
+                new PushProvider(_inputContext, _physicsContext)
             };
 
             return movementProviders;

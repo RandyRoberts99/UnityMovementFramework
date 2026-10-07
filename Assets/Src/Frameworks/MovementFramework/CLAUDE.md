@@ -44,6 +44,7 @@ Examples/
     VerticalMovement/
     Rotation/
     GroundMotion/
+    Push/
   <Name>Mode/                       a new mode takes the same shape
 ```
 
@@ -76,11 +77,15 @@ MovementController (MonoBehaviour)  drives everything, owns CharacterController
                  └─ MovementState   e.g. Grounded, Jumping, Falling
 ```
 
-**Providers are summed, not chained.** `DefaultMode.Process()` zeroes its velocity, runs every provider, and adds each provider's `Velocity` into the total. Each provider is therefore responsible for a disjoint slice of the vector: `HorizontalMovementProvider` writes X and Z, `VerticalMovementProvider` writes Y, `RotationProvider` writes none. A provider that writes an axis another provider owns will silently double it. New providers must claim an unowned axis or be designed as an additive offset. `GroundMotionProvider` is the one additive offset: it owns no axis and adds the ground's velocity on all three (see Ground motion).
-
+**Providers are summed, not chained.** `DefaultMode.Process()` zeroes its velocity, runs every provider, and adds each provider's `Velocity` into the total. Each provider is therefore responsible for a disjoint slice of the vector: `HorizontalMovementProvider` writes X and Z, `VerticalMovementProvider` writes Y, `RotationProvider` writes none. A provider that writes an axis another provider owns will silently double it. New providers must claim an unowned axis or be designed as an additive offset. `GroundMotionProvider` and `PushProvider` are the additive offsets: they own no axis and add on all three, the ground's velocity and the push away from moving colliders (see Ground motion and Pushing).
 **Rotations compose by multiplication.** Same rule, different operator. `DefaultMode.Process()` resets `Rotation` and `CameraRotation` to identity and multiplies each provider's in, so a provider that produces no rotation contributes nothing — which is why `MovementProvider.Rotation` defaults to identity rather than `default`, since a zeroed quaternion would annihilate the product. Only `RotationProvider` claims either slice today.
 
-**One ordering dependency.** The velocity sum is order-independent, but `RotationProvider` must be registered *before* `HorizontalMovementProvider` in `DefaultMode.CreateMovementProviders()`. `RotatingState` writes `PhysicsContext.Rotation` and `MovingState` reads it to steer, so the reverse order leaves movement a physics step behind the camera. This is the only place provider order matters; anything else that couples two providers through the context will need the same care.
+**Two ordering dependencies.** The velocity sum is order-independent, but two pairs of providers are coupled through the context, so their order in `DefaultMode.CreateMovementProviders()` matters:
+
+- `RotationProvider` before `HorizontalMovementProvider`. `RotatingState` writes `PhysicsContext.Rotation` and `MovingState` reads it to steer, so the reverse order leaves movement a physics step behind the camera.
+- `GroundMotionProvider` before `PushProvider`. `CarriedState` records this step's `GroundTransform` and `PushedState` skips that collider, so the reverse order skips last step's ground and lets a rising platform both carry and push the character.
+
+Anything else that couples two providers through the context will need the same care.
 
 **Modes switch like states.** `MovementMotor.Process()` runs the current mode's `Switch()` and swaps modes on a non-null result, so each mode decides its own exits: `DefaultMode.Switch()` tests the entry condition for another mode and returns it, and that mode's `Switch()` decides when to hand back. The motor stays generic.
 
@@ -163,7 +168,20 @@ The velocity that carries between physics steps, and between the two states, is 
 - **The ground's velocity is measured, not declared.** Each grounded step, `CarriedState` finds the collider underfoot with a `SphereCast` and records its transform and `localToWorldMatrix` in `PhysicsContext.GroundTransform` and `GroundLocalToWorld`. The next step maps `Position` through the old matrix and the current one; the difference over `fixedDeltaTime` is the velocity. Translation and rotation both come through, and platforms need no component or interface: anything whose transform moves carries the character. Do not add an `IMovingPlatform` for this.
 - **The first step on new ground carries nothing**, because there is no earlier matrix to compare against. `ReleasedState.Start()` clears `GroundTransform` for this reason: landing back on the platform just left must not compare against a matrix several steps stale, which would read as a huge velocity.
 - **Leaving the ground keeps horizontal momentum, not vertical.** `ReleasedState` holds the ground's X and Z unchanged until landing. It drops Y, because a constant offset that gravity never acts on would carry the character upward for the whole flight. On landing, `CarriedState` replaces the momentum with the new ground's velocity, so it stops at once rather than bleeding off.
-- **The platform's transform, not its physics copy, is what is measured.** `MovementController` runs at execution order -100, before scene scripts, so a platform moved in its own `FixedUpdate()` is measured one step after it moves. The character trails it by one step's displacement, a constant offset that never accumulates. A platform must move in `FixedUpdate()`; moving it in `Update()` measures render-rate jitter.
+- **A platform must hold the step's pose twice before the character moves.** `CarriedState` measures the platform's *transform*, and `CharacterController.Move()` collides with its *physics* copy. So `MovingPlatform` and `CubeRotator` run at execution order -200, ahead of `MovementController`'s -100. Each `FixedUpdate()` sets the pose for `Time.fixedTime` on the transform and on a kinematic `Rigidbody`, which moves the collider in the physics scene at once, with no `Physics.SyncTransforms()`. A platform that moves its transform alone this early leaves its collider a step behind the measurement. A rising platform then carries the character off it, and `isGrounded` flickers.
+- **Platforms draw like the character.** Each platform's pose is a function of time, so its `Update()` draws the exact pose for `Time.time`, moving at the frame rate beside the character's extrapolated drawing. The drawn pose never reaches physics: `autoSyncTransforms` is off, and the simulation syncs only after `FixedUpdate()` has put the step's pose back. A platform that moves only in `FixedUpdate()` is drawn stepping at the physics rate and visibly judders against the camera.
+
+## Pushing
+
+`PushProvider` has one state, `PushedState`, which runs every step, grounded or not, and moves the character out of the way of moving colliders.
+
+- **`CharacterController` does not depenetrate from moving colliders.** Its overlap recovery works only against static colliders. So nothing else gets the character out of a kinematic body that has moved into it.
+- **The push is an additive velocity, worked out from the pushers alone.** `PushedState` sees only the contexts, not the other providers' velocities. For each pusher near the capsule it finds which way is out and how far the pusher is from the capsule's core segment. It outputs the velocity that takes the character back to the hold distance, added to the sum like any other provider's. Each step's push equals the distance the pusher moved, so `CharacterController.velocity` carries it and `Extrapolate()` draws the character moving with the pusher. The push carries no momentum: it stops when the pusher stops or moves away.
+- **Walls are held a step's worth of the character's speed beyond the skin.** The push and the character's own movement go out in one sweep. A pusher inside the skin blocks that sweep along its normal, which cancels the push together with the step towards it. The pusher then gains on the character every step until it is inside, which caused the choppy pushing and the walk-throughs. The hold distance is therefore `radius + skinWidth + lookahead`, where `lookahead` is the larger of `MovementSpeed` and the controller's last speed, times `fixedDeltaTime`. A step towards the pusher can never close that, so the push always outweighs it and the sweep starts clear. The character can still walk right up to the skin. The cost is a gap of up to `lookahead` (10 cm at the defaults) between the character and a pusher it is not walking into.
+- **Something walkable is held only at the skin.** A pusher whose normal is within `slopeLimit` of up is a surface the character could stand on, rising into it from below. It gets no lookahead, because holding it further out would leave the character hovering where the sweep never touches it and `isGrounded` never comes.
+- **A core inside a pusher falls back to `Physics.ComputePenetration`.** The nearest-points measure cannot tell which way is out once the capsule's core segment is inside the collider. That takes a pusher moving more than the skin in one step, or a teleport into one. Skipping the collider then would let the character walk through it.
+- **A pusher is a collider on a kinematic `Rigidbody`**, which is what `MovingPlatform` and `CubeRotator` add to themselves. Static colliders are skipped because the controller handles them, and so are non-convex meshes, which `Collider.ClosestPoint` cannot measure. The current ground is skipped because `GroundMotionProvider` already carries the character with it.
+- **A pusher must move before the character.** The push measures the pusher where it is now, so a platform must follow the Ground motion rules: execution order ahead of -100, with its pose set on the body in `FixedUpdate()`.
 
 ## Rotation
 
