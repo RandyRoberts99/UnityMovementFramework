@@ -20,6 +20,7 @@ namespace Radknee.MovementFramework
         public bool JumpReleased { get; set; }
         public bool SprintPressed { get; set; }
         public bool CrouchPressed { get; set; }
+        public bool FirePressed { get; set; }
 
     }
 }

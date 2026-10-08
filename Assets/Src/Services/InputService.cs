@@ -17,6 +17,7 @@ namespace Radknee.Services
         private InputAction _jumpAction;
         private InputAction _sprintAction;
         private InputAction _crouchAction;
+        private InputAction _fireAction;
 
         public InputService()
         {
@@ -29,6 +30,7 @@ namespace Radknee.Services
             _jumpAction = _playerActionMap.FindAction("Jump", throwIfNotFound: true);
             _sprintAction = _playerActionMap.FindAction("Sprint", throwIfNotFound: true);
             _crouchAction = _playerActionMap.FindAction("Crouch", throwIfNotFound: true);
+            _fireAction = _playerActionMap.FindAction("Fire", throwIfNotFound: true);
         }
 
         public void Process()
@@ -63,6 +65,12 @@ namespace Radknee.Services
 
             InputContext.SprintPressed = _sprintAction.triggered;
             InputContext.CrouchPressed = _crouchAction.triggered;
+
+            // Latched like the jump press, and cleared by whoever fires.
+            if (_fireAction.WasPressedThisFrame())
+            {
+                InputContext.FirePressed = true;
+            }
         }
     }
 }

@@ -24,6 +24,31 @@ namespace Radknee.Gameplay
          */
         private MovementMotor _movementMotor;
 
+        /// <summary>
+        /// One push from outside the movement layer: a velocity that fades linearly to nothing
+        /// over its decay time. Kept apart from the motor's velocity and added to it for every
+        /// move while it lasts.
+        /// </summary>
+        private struct Impulse
+        {
+            /// <summary>The velocity at full strength, the moment the impulse is applied.</summary>
+            public Vector3 Velocity;
+
+            /// <summary>Seconds from full strength to nothing. Zero lasts a single physics step.</summary>
+            public float DecayTime;
+
+            /// <summary>Seconds of physics time since the impulse was applied.</summary>
+            public float Age;
+
+            public Vector3 CurrentVelocity => DecayTime > 0f ? Velocity * (1f - Age / DecayTime) : Velocity;
+
+            public bool IsExpired => Age >= DecayTime;
+        }
+
+        // Every impulse still fading. Each is its own instance, so impulses applied together decay
+        // on their own clocks rather than as one lump.
+        private readonly List<Impulse> _impulses = new();
+
         void Awake()
         {
             if (characterCamera == null)
@@ -73,7 +98,80 @@ namespace Radknee.Gameplay
             // pose back first makes the move start from where the character is, not where it was
             // last drawn.
             Rotate(_physicsContext.Position, _movementMotor.Rotation, _movementMotor.CameraRotation);
-            Move(_movementMotor.Velocity);
+            Move(_movementMotor.Velocity + GetImpulseVelocity());
+
+            UpdateImpulses();
+        }
+
+        /// <summary>
+        /// Pushes the character from outside the movement layer: a rocket blast, a launch pad, a
+        /// gust of wind. The caller works out the push, its direction, strength and any falloff,
+        /// and hands over the velocity it amounts to, in units per second, with how long it takes
+        /// to fade, in seconds. The impulse moves the character at that velocity on the next
+        /// physics step and fades linearly to nothing over the decay time. Impulses add up, each
+        /// fading on its own clock.
+        ///
+        /// Safe to call from Update, FixedUpdate or a trigger callback: an impulse only starts
+        /// ageing at the physics step that first applies it. A steady force, such as wind, is a
+        /// decay time of zero applied once per physics step, from FixedUpdate. Applying it every
+        /// frame would apply it several times over on frames between steps.
+        /// </summary>
+        public void ApplyImpulse(Vector3 velocity, float decayTime)
+        {
+            _impulses.Add(new Impulse
+            {
+                Velocity = velocity,
+                DecayTime = Mathf.Max(decayTime, 0f),
+                Age = 0f
+            });
+        }
+
+        /// <summary>
+        /// The combined velocity of every impulse still fading, as it stands this step.
+        /// </summary>
+        private Vector3 GetImpulseVelocity()
+        {
+            Vector3 velocity = Vector3.zero;
+            foreach (Impulse impulse in _impulses)
+            {
+                velocity += impulse.CurrentVelocity;
+            }
+
+            return velocity;
+        }
+
+        /// <summary>
+        /// Ages every impulse by the step just taken, after the move. An impulse driving the
+        /// character into a floor or ceiling the move ran into loses its vertical part, so a blast
+        /// cannot pin the character to either; an impulse past its decay time is removed.
+        /// </summary>
+        private void UpdateImpulses()
+        {
+            CollisionFlags collisionFlags = characterController.collisionFlags;
+            bool hitFloor = (collisionFlags & CollisionFlags.Below) != 0;
+            bool hitCeiling = (collisionFlags & CollisionFlags.Above) != 0;
+
+            // Backwards, so removing an impulse does not skip the one after it.
+            for (int i = _impulses.Count - 1; i >= 0; i--)
+            {
+                Impulse impulse = _impulses[i];
+
+                if ((hitFloor && impulse.Velocity.y < 0f) || (hitCeiling && impulse.Velocity.y > 0f))
+                {
+                    impulse.Velocity.y = 0f;
+                }
+
+                impulse.Age += Time.fixedDeltaTime;
+
+                if (impulse.IsExpired)
+                {
+                    _impulses.RemoveAt(i);
+                }
+                else
+                {
+                    _impulses[i] = impulse;
+                }
+            }
         }
 
         /// <summary>

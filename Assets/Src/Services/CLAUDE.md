@@ -18,6 +18,8 @@ Framework infrastructure: the service locator, the services that fill the moveme
 
 `InputService` owns no timers and no buffering, and writes no settings: `LookSensitivity` belongs to `InputProvider`.
 
+`FirePressed` is latched like `JumpPressed`. Its only consumer, the sample's `RocketJumpTester`, clears it.
+
 **`SprintPressed` and `CrouchPressed` are not safe to use as they are.** They are assigned from `InputAction.triggered`, an unlatched edge, so a state reading them in FixedUpdate will miss presses. Before any state consumes one, convert it the way `JumpPressed` works: latch it here and clear it in the consuming state's `Start()`. If it is really a hold, assign it from `IsPressed()` as a level instead.
 
 Known leak, not to be copied: `InputService` hardcodes the sample's map name, and `PhysicsProvider` imports `Radknee.MovementFramework.Examples` without using it. New service code must not reference `Examples/`.

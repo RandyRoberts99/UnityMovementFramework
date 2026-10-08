@@ -16,6 +16,8 @@ namespace Radknee.MovementFramework
         public float MovementSpeed { get; set; } = 5f;
         public float HorizontalAcceleration { get; set; } = 10f;
         public float HorizontalDrag { get; set; } = 5f;
+        public float AirAcceleration { get; set; } = 10f;
+        public float AirDrag { get; set; } = 0f;
         public float JumpPower { get; set; } = 15f;
         public float Gravity { get; set; } = -9.81f;
         public float GroundingForce { get; set; } = -2f;

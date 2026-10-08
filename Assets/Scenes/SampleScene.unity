@@ -483,6 +483,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e754bcae95d12b649b1a138f34bf4fef, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CubeRotator
+  degreesPerSecond: 50
 --- !u!1 &832575517
 GameObject:
   m_ObjectHideFlags: 0
@@ -671,6 +672,7 @@ GameObject:
   - component: {fileID: 972485616}
   - component: {fileID: 972485615}
   - component: {fileID: 972485617}
+  - component: {fileID: 972485618}
   m_Layer: 0
   m_Name: Scripts
   m_TagString: Untagged
@@ -701,6 +703,8 @@ MonoBehaviour:
   jumpBufferDuration: 0.15
   jumpCutMultiplier: 0.5
   airJumpCount: 1
+  airAcceleration: 10
+  airDrag: 0
   minPitchAngle: -89
   maxPitchAngle: 89
 --- !u!4 &972485616
@@ -731,6 +735,25 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Radknee.Services.InputProvider
   lookSensitivity: 0.161
+--- !u!114 &972485618
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 972485614}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 426c649c8381e3444819c435637718b4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Radknee.MovementFramework.Examples.RocketJumpTester
+  aimCamera: {fileID: 858264006}
+  range: 50
+  blastRadius: 4
+  blastStrength: 15
+  hitLayers:
+    serializedVersion: 2
+    m_Bits: 51
 --- !u!1 &1120601701
 GameObject:
   m_ObjectHideFlags: 0

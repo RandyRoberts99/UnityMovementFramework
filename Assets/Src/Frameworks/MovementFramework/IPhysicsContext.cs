@@ -27,6 +27,22 @@ namespace Radknee.MovementFramework
         /// outlast the run-up. Zero is frictionless: the character keeps coasting until steered.
         /// </summary>
         float HorizontalDrag { get; set; }
+
+        /// <summary>
+        /// How fast steering adds horizontal speed in the air, in units per second per second. In
+        /// the air the input can only add speed along the direction it asks for, up to
+        /// <see cref="MovementSpeed"/>, and never brakes: speed beyond that, such as a rocket
+        /// jump's, is kept. Strafing still turns the character, since a new direction is speed the
+        /// current velocity does not yet have along it.
+        /// </summary>
+        float AirAcceleration { get; set; }
+
+        /// <summary>
+        /// How fast horizontal velocity bleeds off in the air with no input, in units per second
+        /// per second. The airborne counterpart of <see cref="HorizontalDrag"/>. Zero coasts until
+        /// landing.
+        /// </summary>
+        float AirDrag { get; set; }
         float JumpPower { get; set; }
         float Gravity { get; set; }
 

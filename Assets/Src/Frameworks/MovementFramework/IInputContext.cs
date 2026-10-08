@@ -43,5 +43,11 @@ namespace Radknee.MovementFramework
         bool JumpReleased { get; set; }
         bool SprintPressed { get; set; }
         bool CrouchPressed { get; set; }
+
+        /// <summary>
+        /// Set true when the fire button goes down and left true until whoever acts on it clears
+        /// it, latched for the same reason as <see cref="JumpPressed"/>.
+        /// </summary>
+        bool FirePressed { get; set; }
     }
 }

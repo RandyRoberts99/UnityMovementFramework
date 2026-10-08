@@ -40,6 +40,13 @@ public class PhysicsProvider : MonoBehaviour
     [Range(0, 5)]
     public int airJumpCount = 1;
 
+    [Header("Air Control")]
+    [Tooltip("How fast steering adds speed in the air, up to Movement Speed. Never brakes speed beyond it, such as a rocket jump's.")]
+    [Range(0f, 50f)]
+    public float airAcceleration = 10f;
+    [Tooltip("How fast horizontal speed bleeds off in the air with no input. Zero coasts until landing.")]
+    [Range(0f, 50f)]
+    public float airDrag = 0f;
     [Header("Look")]
     [Tooltip("How far the camera may pitch up. Negative; keep just short of -90.")]
     [Range(-89.9f, 0f)]
@@ -82,6 +89,8 @@ public class PhysicsProvider : MonoBehaviour
         _physicsContext.JumpBufferDuration = jumpBufferDuration;
         _physicsContext.JumpCutMultiplier = jumpCutMultiplier;
         _physicsContext.AirJumpCount = airJumpCount;
+        _physicsContext.AirAcceleration = airAcceleration;
+        _physicsContext.AirDrag = airDrag;
         _physicsContext.MinPitchAngle = minPitchAngle;
         _physicsContext.MaxPitchAngle = maxPitchAngle;
     }

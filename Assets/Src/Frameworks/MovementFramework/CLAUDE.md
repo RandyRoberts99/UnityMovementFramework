@@ -37,6 +37,7 @@ A distinct ability is a mode even when it touches one slice, which is why `Defau
 Examples/
   MovementController.cs
   Inputs.inputactions               project-wide actions asset
+  MovingPlatform.cs, CubeRotator.cs, RocketJumpTester.cs   scene test props
   DefaultMode/
     DefaultMode.cs
     HorizontalMovement/             one folder per provider: provider + its states
@@ -64,6 +65,8 @@ One class per file. Names are `<Name>Mode`, `<Slice>Provider` and `<Phase>State`
 - A `SlidingState` or `DashingState` added to `HorizontalMovementProvider`. Abilities are modes.
 - A method on `MovementState` or `MovementProvider` shared by several states.
 - Drawing or extrapolation logic in a provider, mode or motor. The framework runs only on the physics clock.
+- An `ImpulseProvider` holding external pushes as its own velocity. It would need its own gravity and drag, and the vertical states would keep overwriting the axis it fights them for. Pushes are a separate velocity in `MovementController` (see External forces).
+- A check for external pushes inside a state, or a controller reaching into providers to apply one. Impulses never enter the movement layer.
 
 ## Architecture
 
@@ -161,6 +164,37 @@ The two horizontal states are not "stopped" and "moving" so much as two halves o
 
 The velocity that carries between physics steps, and between the two states, is `MovementProvider.Velocity` itself: `DefaultMode.Process()` zeroes its own total each step but never the providers', so the horizontal provider's slice survives. That is why **neither state may zero it in `Start()`** — that assignment is the instant stop the model exists to remove — and why the inertia needs no new property on `PhysicsContext`. It is the one piece of movement state already reachable from every state without a cast.
 
+## Air control
+
+Both horizontal states branch on `CharacterController.isGrounded`. On the ground they run the model above. In the air they follow Quake's rules:
+
+- `MovingState` only **adds** speed along the direction the input asks for, at `AirAcceleration`, until the velocity's share of that direction reaches the target speed. It never takes speed away. Holding forward after a blast keeps the excess speed, and strafing turns the character by adding speed in a direction it has little of.
+- `IdleState` bleeds speed off at `AirDrag` instead of `HorizontalDrag`. At the default of 0, the character coasts until it lands, where ground friction takes over.
+
+These are settings, not states: the air is not a phase of horizontal movement, only different numbers and one different rule inside the same two states.
+
+## External forces
+
+Anything outside the movement layer, such as a rocket blast, a launch pad or wind, pushes the character through `MovementController.ApplyImpulse(Vector3 velocity, float decayTime)`. The **source owns the force**: it works out direction, falloff, strength and how long the push lasts, then hands over only the velocity and decay time. Do not add an event bus the character listens on, an impulse provider, or an `IImpulseReceiver` interface. `RocketJumpTester` is the reference caller.
+
+**Impulses are a separate velocity, added at the end.** `MovementController` moves by `MovementMotor.Velocity + GetImpulseVelocity()`. The movement layer never sees impulses: no mode, provider, state or context property knows about them. Keep it that way. Do not reach into providers, and do not add impulse checks to a state.
+
+Naming, all inside `MovementController`:
+
+| Name | What it is |
+| --- | --- |
+| `Impulse` | One push: a private nested struct holding `Velocity` (full strength), `DecayTime` and `Age`, all in seconds where timed. `CurrentVelocity` is the velocity faded linearly by age; `IsExpired` is age past decay time. |
+| `ApplyImpulse(velocity, decayTime)` | The only public entry. Adds one new `Impulse`. |
+| `_impulses` | Every impulse still fading. |
+| `GetImpulseVelocity()` | The sum of every impulse's `CurrentVelocity`, added to the move. |
+| `UpdateImpulses()` | Runs after the move. Ages each impulse by `fixedDeltaTime`, strips the vertical part from any driving into a floor or ceiling the move hit, and removes expired ones. |
+
+- **Each impulse is its own instance on its own clock.** Two blasts in quick succession stack, and each fades over its own decay time. A decay time of zero lasts exactly one physics step.
+- **Safe from either clock.** An impulse is only read and aged in `FixedUpdate()`, so one applied from Update, FixedUpdate or a trigger callback starts at full strength on the next step. A steady force, such as wind, is a zero-decay impulse applied once per step, from `FixedUpdate()`. Applied from `Update()`, it would be applied several times on frames between steps.
+- **Gravity does not act on impulses.** Their decay time is what brings a launch back down, alongside gravity on the character's own fall in the vertical states.
+- **Launches need no help from the states.** An upward push outweighs `GroundingForce`, so the move lifts the character. `GroundedState` then sees it airborne and hands over to `FallingState` as for walking off a ledge.
+- **Known consequences of keeping it separate:** coyote time is still live during a launch, so a jump can be added on top. The jump cut trims only the jump, never the push. A push into a wall keeps pressing against it until it decays, since nothing cancels the sideways part on a side hit.
+
 ## Ground motion
 
 `GroundMotionProvider` carries the character with whatever it stands on. It has two states: `CarriedState` while `isGrounded` and `ReleasedState` otherwise.
@@ -218,7 +252,6 @@ It holds two kinds of property, written by different owners:
 
 Scaffolding that exists but does nothing yet. Do not assume these work.
 
-- **No air control distinction.** The horizontal provider runs identically whether grounded or airborne, so a jump is steered with exactly the ground's acceleration and drag. Splitting them means new settings on `IPhysicsContext`, not new states.
 - `MovementMotor.Move()`, `Rotate()` and `RotateCamera()` are empty.
 - `DefaultMode.CanWallrun()`, `CanClimb()` and `CanSlide()` return false, and only one mode is registered.
 - `IPlayerContext` does not exist yet. The first resource to be added brings it into being: the interface and implementation go at the core root beside the other contexts, and `MovementProvider` gains a `PlayerContext` property set in every provider's constructor like the other two.

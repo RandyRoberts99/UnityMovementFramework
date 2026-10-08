@@ -21,14 +21,19 @@ namespace Radknee.MovementFramework.Examples
             // No input, so the target is a standstill and the character coasts down to it. Drag is
             // a separate setting from acceleration so a slide into a stop can be longer or shorter
             // than the run-up; scaling by fixedDeltaTime makes it a change in velocity per second
-            // rather than per physics step.
+            // rather than per physics step. In the air it is AirDrag instead, so a rocket jump is
+            // not braked by the ground's friction.
             //
-            // A HorizontalDrag of zero is frictionless: the character keeps whatever velocity it
-            // had until the player steers again.
+            // A drag of zero is frictionless: the character keeps whatever velocity it had until
+            // the player steers again.
+            float drag = movementProvider.PhysicsContext.CharacterController.isGrounded
+                ? movementProvider.PhysicsContext.HorizontalDrag
+                : movementProvider.PhysicsContext.AirDrag;
+
             movementProvider.Velocity = Vector3.MoveTowards(
                 movementProvider.Velocity,
                 Vector3.zero,
-                movementProvider.PhysicsContext.HorizontalDrag * Time.fixedDeltaTime);
+                drag * Time.fixedDeltaTime);
         }
 
         public override void End()

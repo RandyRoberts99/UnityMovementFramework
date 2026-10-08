@@ -47,6 +47,7 @@ Dependencies point one way: the sample uses the core, services and generics; ser
 | A tuning value | A settings property on `IPhysicsContext`/`PhysicsContext`, exposed by `PhysicsProvider` (the three-file rule in the services `CLAUDE.md`). |
 | Movement state shared between states or providers, physics or not (timers, crouch height) | A runtime property on `IPhysicsContext`/`PhysicsContext`. It is the movement context, despite the name. |
 | A player resource that is spent and regenerates (stamina, dash charges) | The player-values service and its `IPlayerContext`. Planned, not built: see the services `CLAUDE.md`. |
+| An external force (rocket blast, launch pad, wind) | The source computes it and calls `MovementController.ApplyImpulse(velocity, decayTime)`. Never a new provider, event bus or receiver interface; the framework `CLAUDE.md` has the rules. |
 | A camera effect driven by movement (head bob, FOV kick) | Its own `MonoBehaviour` in `Examples/`, reading the contexts through `ServiceManager`. |
 | A new input | A binding in `Examples/Inputs.inputactions`, read by `InputService` into a property on `IInputContext`/`InputContext`. |
 | Look sensitivity, or another input setting | A field on `InputProvider`, which is the only writer of `InputContext` settings. |
