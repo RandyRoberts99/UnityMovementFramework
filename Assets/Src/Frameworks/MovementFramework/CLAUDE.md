@@ -25,7 +25,7 @@ Pick the layer first, by what the new behaviour does:
 
 A distinct ability is a mode even when it touches one slice, which is why `DefaultMode` carries `CanSlide()` beside `CanWallrun()` and `CanClimb()`. States are for the phases of a mode's own locomotion (idle and moving; grounded, jumping and falling), not for abilities.
 
-**Mode or modifier.** It is a mode when it changes the *rules*: what the character may do, its capsule, or which transitions exist. It is a modifier when it only swaps a number an existing state already uses. So **crouch is `CrouchMode`**, because it changes capsule height and blocks jumping. **Sprint is not a mode**: `MovingState` reads a sprint *level* from `InputContext` and targets a `SprintSpeed` setting instead of `MovementSpeed`, spending stamina through `IPlayerContext`.
+**Mode or modifier.** It is a mode when it changes the *rules*: what the character may do, its capsule, or which transitions exist. It is a modifier when it only swaps a number an existing state already uses. So **crouch is `CrouchMode`**, because it changes capsule height and blocks jumping. **Sprint is not a mode**: `MovingState` reads the `SprintHeld` level from `InputContext` and targets the `SprintSpeed` setting instead of `MovementSpeed`. Sprint costs nothing yet; once `IPlayerContext` exists, `MovingState` spends stamina through it.
 
 **World queries** use the `CharacterController` on `PhysicsContext` for the capsule's position, radius and height, and run where the decision is made: a mode's `Switch()` for entry (`DefaultMode.CanWallrun()`), a state's `Switch()` or `Process()` inside a mode. Nothing caches query results on a context for other code to read, unless two providers genuinely need the same result in one step.
 
@@ -159,7 +159,7 @@ A related trap: `CharacterController.isGrounded` is only true while the controll
 
 The two horizontal states are not "stopped" and "moving" so much as two halves of one inertia model, and neither one ever assigns a velocity outright.
 
-- `MovingState` turns the input into a *target* velocity — heading times input times `MovementSpeed` — and moves the current velocity toward it by `HorizontalAcceleration * fixedDeltaTime`. Turning costs the same as speeding up, because a new direction is just a target the current velocity is far from.
+- `MovingState` turns the input into a *target* velocity — heading times input times `MovementSpeed`, or `SprintSpeed` while `SprintHeld` — and moves the current velocity toward it by `HorizontalAcceleration * fixedDeltaTime`. Turning costs the same as speeding up, because a new direction is just a target the current velocity is far from.
 - `IdleState` targets zero instead and closes on it at `HorizontalDrag`, so releasing the input coasts rather than stops. A `HorizontalDrag` of zero is frictionless: the character keeps its velocity until it is steered again.
 
 The velocity that carries between physics steps, and between the two states, is `MovementProvider.Velocity` itself: `DefaultMode.Process()` zeroes its own total each step but never the providers', so the horizontal provider's slice survives. That is why **neither state may zero it in `Start()`** — that assignment is the instant stop the model exists to remove — and why the inertia needs no new property on `PhysicsContext`. It is the one piece of movement state already reachable from every state without a cast.

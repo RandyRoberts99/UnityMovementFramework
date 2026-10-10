@@ -14,6 +14,7 @@ namespace Radknee.MovementFramework
         }
         public CharacterController CharacterController { get; set; }
         public float MovementSpeed { get; set; } = 5f;
+        public float SprintSpeed { get; set; } = 8f;
         public float HorizontalAcceleration { get; set; } = 10f;
         public float HorizontalDrag { get; set; } = 5f;
         public float AirAcceleration { get; set; } = 10f;

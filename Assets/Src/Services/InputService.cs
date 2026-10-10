@@ -93,7 +93,7 @@ namespace Radknee.Services
             InputContext.JumpHeld = _jumpAction.IsPressed();
             InputContext.JumpReleased = _jumpAction.WasReleasedThisFrame();
 
-            InputContext.SprintPressed = _sprintAction.triggered;
+            InputContext.SprintHeld = _sprintAction.IsPressed();
             InputContext.CrouchPressed = _crouchAction.triggered;
 
             // Latched like the jump press, and cleared by whoever fires. A click that only took the

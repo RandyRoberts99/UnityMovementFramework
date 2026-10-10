@@ -9,6 +9,9 @@ public class PhysicsProvider : MonoBehaviour
     [Header("Physics Parameters")]
     [Range(0f, 20f)]
     public float movementSpeed = 5f;
+    [Tooltip("Speed while sprint is held. Reached at the same horizontal acceleration as walking.")]
+    [Range(0f, 20f)]
+    public float sprintSpeed = 8f;
     [Tooltip("How fast the character gets up to speed and turns. Lower is heavier.")]
     [Range(0f, 50f)]
     public float horizontalAcceleration = 10f;
@@ -79,6 +82,7 @@ public class PhysicsProvider : MonoBehaviour
         }
         // Update the physics context with the values from the inspector
         _physicsContext.MovementSpeed = movementSpeed;
+        _physicsContext.SprintSpeed = sprintSpeed;
         _physicsContext.HorizontalAcceleration = horizontalAcceleration;
         _physicsContext.HorizontalDrag = horizontalDrag;
         _physicsContext.JumpPower = jumpPower;

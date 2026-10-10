@@ -30,13 +30,22 @@ namespace Radknee.MovementFramework.Examples
             // character into the ground or the air whenever they looked up or down.
             Quaternion heading = movementProvider.PhysicsContext.Rotation;
 
-            Vector3 targetVelocity = heading * localDirection * movementProvider.PhysicsContext.MovementSpeed;
+            // Sprint swaps the target speed and nothing else, so it is a modifier here rather than
+            // a state or a mode. The rest of the step closes on whichever target it gets, on the
+            // ground and in the air alike: letting go of sprint eases back down to MovementSpeed at
+            // HorizontalAcceleration instead of snapping, and in the air it only raises how far
+            // steering may add speed.
+            float speed = movementProvider.InputContext.SprintHeld
+                ? movementProvider.PhysicsContext.SprintSpeed
+                : movementProvider.PhysicsContext.MovementSpeed;
+
+            Vector3 targetVelocity = heading * localDirection * speed;
 
             if (movementProvider.PhysicsContext.CharacterController.isGrounded == false)
             {
                 // In the air the input may only add speed along the direction it asks for, and
                 // only until the velocity's share of that direction reaches the target speed. It
-                // never takes speed away, so momentum beyond MovementSpeed, such as a rocket
+                // never takes speed away, so momentum beyond the target speed, such as a rocket
                 // jump's, survives holding a direction instead of being steered back down to it.
                 // Steering still turns the character: a new direction is one the current velocity
                 // has little speed along, so speed is added there while the old direction keeps

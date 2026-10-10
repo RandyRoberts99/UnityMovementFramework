@@ -12,6 +12,13 @@ namespace Radknee.MovementFramework
 
         [Header("Settings")]
         float MovementSpeed { get; set; }
+
+        /// <summary>
+        /// The speed MovingState aims for in place of <see cref="MovementSpeed"/> while sprint is
+        /// held, in units per second. Reached at the same <see cref="HorizontalAcceleration"/>.
+        /// </summary>
+        float SprintSpeed { get; set; }
+
         /// <summary>
         /// How fast horizontal velocity closes on the speed the input asks for, in units per
         /// second per second. This is the character's inertia while being steered: it governs
@@ -31,7 +38,7 @@ namespace Radknee.MovementFramework
         /// <summary>
         /// How fast steering adds horizontal speed in the air, in units per second per second. In
         /// the air the input can only add speed along the direction it asks for, up to
-        /// <see cref="MovementSpeed"/>, and never brakes: speed beyond that, such as a rocket
+        /// <see cref="MovementSpeed"/> (<see cref="SprintSpeed"/> while sprinting), and never brakes: speed beyond that, such as a rocket
         /// jump's, is kept. Strafing still turns the character, since a new direction is speed the
         /// current velocity does not yet have along it.
         /// </summary>

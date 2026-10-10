@@ -41,7 +41,13 @@ namespace Radknee.MovementFramework
         /// True only on the poll in which the jump button went up.
         /// </summary>
         bool JumpReleased { get; set; }
-        bool SprintPressed { get; set; }
+
+        /// <summary>
+        /// True while the sprint button is held. A level, so sampling it in FixedUpdate is merely
+        /// sampling it late and needs no latch.
+        /// </summary>
+        bool SprintHeld { get; set; }
+
         bool CrouchPressed { get; set; }
 
         /// <summary>
