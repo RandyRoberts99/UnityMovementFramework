@@ -27,10 +27,8 @@ namespace Radknee.MovementFramework.Examples
             IPhysicsContext physicsContext = movementProvider.PhysicsContext;
             CharacterController controller = physicsContext.CharacterController;
 
-            Vector3 centre = physicsContext.Position + physicsContext.Rotation * controller.center;
-            Vector3 halfAxis = Vector3.up * Mathf.Max(0f, controller.height * 0.5f - controller.radius);
-            Vector3 bottom = centre - halfAxis;
-            Vector3 top = centre + halfAxis;
+            PhysicsUtilities.CapsuleSegment(controller, physicsContext.Position, physicsContext.Rotation,
+                out Vector3 bottom, out Vector3 top);
 
             // The capsule and its skin, which is how far the controller keeps from everything it
             // walks into.
@@ -58,34 +56,12 @@ namespace Radknee.MovementFramework.Examples
                     continue;
                 }
 
-                // The nearest pair of points between the collider and the capsule's core segment,
-                // found by going from one to the other and back. Exact enough for the shallow
-                // overlap a single step leaves.
-                Vector3 onCollider = other.ClosestPoint(centre);
-                Vector3 onSegment = ClosestPointOnSegment(bottom, top, onCollider);
-                onCollider = other.ClosestPoint(onSegment);
-
-                Vector3 away = onSegment - onCollider;
-                float distance = away.magnitude;
-
                 // Which way is out, and how far the core is from the pusher's surface that way.
-                Vector3 normal;
-                if (distance > 0f)
-                {
-                    normal = away / distance;
-                }
-                else if (Physics.ComputePenetration(
-                    controller, physicsContext.Position, physicsContext.Rotation,
-                    other, other.transform.position, other.transform.rotation,
-                    out normal, out float depth))
-                {
-                    // The core itself is inside the collider, so the nearest points say nothing
-                    // about which way is out. This takes a collider moving faster than the hold
-                    // distance in one step, or a teleport into one; skipping it would let the
-                    // character walk through.
-                    distance = controller.radius - depth;
-                }
-                else
+                // This holds even with the core itself inside the pusher, which takes a collider
+                // moving faster than the hold distance in one step, or a teleport into one;
+                // skipping it then would let the character walk through.
+                if (PhysicsUtilities.TryMeasureSeparation(other, controller, physicsContext.Position,
+                    physicsContext.Rotation, out Vector3 normal, out float distance) == false)
                 {
                     continue;
                 }
@@ -116,8 +92,9 @@ namespace Radknee.MovementFramework.Examples
         /// <summary>
         /// Whether a collider is one that moves into the character: a kinematic body, moved by
         /// script. Static colliders never move, and the controller recovers from overlapping them
-        /// itself. A non-convex mesh is skipped because ClosestPoint cannot measure it. The ground
-        /// is skipped because GroundMotionProvider already carries the character with it.
+        /// itself. The ground is skipped because GroundMotionProvider already carries the
+        /// character with it. A non-convex mesh passes here but cannot be measured, so
+        /// PhysicsUtilities.TryMeasureSeparation() turns it away.
         /// </summary>
         private bool IsPusher(Collider other)
         {
@@ -127,25 +104,7 @@ namespace Radknee.MovementFramework.Examples
                 return false;
             }
 
-            if (other is MeshCollider mesh && mesh.convex == false)
-            {
-                return false;
-            }
-
             return other.transform != movementProvider.PhysicsContext.GroundTransform;
-        }
-
-        private static Vector3 ClosestPointOnSegment(Vector3 start, Vector3 end, Vector3 point)
-        {
-            Vector3 segment = end - start;
-            float lengthSquared = segment.sqrMagnitude;
-            if (lengthSquared <= 0f)
-            {
-                return start;
-            }
-
-            float t = Mathf.Clamp01(Vector3.Dot(point - start, segment) / lengthSquared);
-            return start + segment * t;
         }
     }
 }

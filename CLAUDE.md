@@ -31,7 +31,7 @@ Editor executable: `E:\Unity\Unity Versions\6000.3.9f1\Editor\Unity.exe`. The on
 
 | Module | Folder | Namespace | Owns | Must not |
 | --- | --- | --- | --- | --- |
-| Framework core | `Assets/Src/Frameworks/MovementFramework/` (root files only) | `Radknee.MovementFramework` | The four abstract layers, the contexts and their implementations, the output interfaces | Reference `Examples/` or `Services/`; know any concrete mode, provider, state, scene or input asset |
+| Framework core | `Assets/Src/Frameworks/MovementFramework/` (root files only) | `Radknee.MovementFramework` | The four abstract layers, the contexts and their implementations, the output interfaces, `PhysicsUtilities` | Reference `Examples/` or `Services/`; know any concrete mode, provider, state, scene or input asset |
 | Sample | `Assets/Src/Frameworks/MovementFramework/Examples/` | `Radknee.MovementFramework.Examples` | Every concrete mode, provider and state; `MovementController`; camera-effect components; `Inputs.inputactions` | Be referenced by the core or by services |
 | Services | `Assets/Src/Services/` | `Radknee.Services` | `IService` implementations, `ServiceManager`, the `PhysicsProvider` and `InputProvider` settings bridges, app-level Unity concerns | Contain movement simulation |
 | Generics | `Assets/Src/Generics/` | `Radknee.Generics` | Framework-agnostic contracts (`IState`, `IStateMachine`) | Hold utilities or helpers |
@@ -53,11 +53,12 @@ Dependencies point one way: the sample uses the core, services and generics; ser
 | Look sensitivity, or another input setting | A field on `InputProvider`, which is the only writer of `InputContext` settings. |
 | Cursor lock or visibility | `InputService`, which locks the cursor at the start of play. |
 | An app-level Unity concern (pause, quit) | A new `IService` in `Services/`, registered in `MovementController.CreateServices()`. |
+| A complex physics calculation a state needs (finding the ground, measuring a surface's velocity, air acceleration) | A static function on `PhysicsUtilities`, at the core root. See Conventions. |
 | A contract with no movement knowledge | `Generics/`. |
 
 Wrong, even though each looks reasonable:
 
-- A static `MovementUtils` or `QuaternionMath` class for shared code. Duplicate it instead (see Conventions).
+- A second utility class, such as `MovementUtils` or `QuaternionMath`. Physics calculations go on `PhysicsUtilities`; anything else is duplicated (see Conventions).
 - An edit to `Assets/InputSystem_Actions.inputactions`. It is an unreferenced Unity template; the project-wide actions asset is `Examples/Inputs.inputactions`.
 - A third settings `MonoBehaviour`. `PhysicsProvider` bridges `PhysicsContext` settings and `InputProvider` bridges `InputContext` settings; extend one of them.
 - A new context interface such as `IStaminaContext` or `ICrouchContext`. Movement state goes on `IPhysicsContext` and resources on `IPlayerContext`; there is no third option.
@@ -75,7 +76,8 @@ Wrong, even though each looks reasonable:
 
 ## Conventions
 
-- **No helper or utility classes, anywhere.** A new class is justified only by a new concept: a mode, provider, state, service, context implementation or camera-effect component. A small function needed in two places is duplicated, with a comment in each copy naming the other and saying to keep them in step (see `PitchOf()` in `MovementController` and `RotatingState`).
+- **One utility class: `PhysicsUtilities`.** It is a static class at the framework core root. Each function takes the specific values it needs (a controller, a position, a matrix), never a context, and resolves one physics task a state uses to work out its movement, returning the answer. Nothing in it reads input, writes a context or decides a transition; the calling state does that with the result. Complex physics calculation in a state belongs there, even with a single caller. Do not add another utility or helper class.
+- **No other helper classes.** A new class is justified only by a new concept: a mode, provider, state, service, context implementation or camera-effect component. A small function needed in two places is duplicated, with a comment in each copy naming the other and saying to keep them in step (see `PitchOf()` in `MovementController` and `RotatingState`).
 - **Every new file uses its module's `Radknee.*` namespace.** Legacy exceptions, not to be copied or fixed in passing: `ServiceManager`, `PhysicsService` and `PhysicsProvider` are in the global namespace, and `MovementController` is in `Radknee.Gameplay`.
 - **"Provider" means a `MovementProvider` or an `I*Provider` output interface.** `PhysicsProvider` and `InputProvider` are the settings bridges, named before this rule; do not create more `*Provider` components.
 - Source files use **CRLF** line endings and some carry a UTF-8 BOM, matching Visual Studio output. `core.autocrlf` is false, so writing a file with LF rewrites every line in the diff. Preserve the existing endings when editing.

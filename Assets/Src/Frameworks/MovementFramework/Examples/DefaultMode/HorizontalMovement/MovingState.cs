@@ -43,24 +43,14 @@ namespace Radknee.MovementFramework.Examples
 
             if (movementProvider.PhysicsContext.CharacterController.isGrounded == false)
             {
-                // In the air the input may only add speed along the direction it asks for, and
-                // only until the velocity's share of that direction reaches the target speed. It
-                // never takes speed away, so momentum beyond the target speed, such as a rocket
-                // jump's, survives holding a direction instead of being steered back down to it.
-                // Steering still turns the character: a new direction is one the current velocity
-                // has little speed along, so speed is added there while the old direction keeps
-                // what it had.
-                float wishSpeed = targetVelocity.magnitude;
-                if (wishSpeed > 0f)
-                {
-                    Vector3 wishDirection = targetVelocity / wishSpeed;
-                    float addSpeed = wishSpeed - Vector3.Dot(movementProvider.Velocity, wishDirection);
-                    if (addSpeed > 0f)
-                    {
-                        float accelerationSpeed = Mathf.Min(addSpeed, movementProvider.PhysicsContext.AirAcceleration * Time.fixedDeltaTime);
-                        movementProvider.Velocity += wishDirection * accelerationSpeed;
-                    }
-                }
+                // In the air the input may only add speed along the direction it asks for, never
+                // take it away, so momentum beyond the target speed, such as a rocket jump's,
+                // survives holding a direction instead of being steered back down to it.
+                movementProvider.Velocity = PhysicsUtilities.AirAccelerate(
+                    movementProvider.Velocity,
+                    targetVelocity,
+                    movementProvider.PhysicsContext.AirAcceleration,
+                    Time.fixedDeltaTime);
 
                 return;
             }
