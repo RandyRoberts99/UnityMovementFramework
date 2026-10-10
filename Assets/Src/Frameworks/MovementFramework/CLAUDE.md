@@ -65,8 +65,8 @@ One class per file. Names are `<Name>Mode`, `<Slice>Provider` and `<Phase>State`
 - A `SlidingState` or `DashingState` added to `HorizontalMovementProvider`. Abilities are modes.
 - A method on `MovementState` or `MovementProvider` shared by several states.
 - Drawing or extrapolation logic in a provider, mode or motor. The framework runs only on the physics clock.
-- An `ImpulseProvider` holding external pushes as its own velocity. It would need its own gravity and drag, and the vertical states would keep overwriting the axis it fights them for. Pushes are a separate velocity in `MovementController` (see External forces).
-- A check for external pushes inside a state, or a controller reaching into providers to apply one. Impulses never enter the movement layer.
+- An `ImpulseProvider` holding external pushes as its own velocity. It would need its own gravity and drag, and the vertical states would keep overwriting the axis it fights them for. Pushes are a separate velocity in `MovementMotor`, added after the mode (see External forces).
+- A check for external pushes inside a state, or a motor or controller reaching into providers to apply one. Impulses never get below the motor.
 
 ## Architecture
 
@@ -175,25 +175,28 @@ These are settings, not states: the air is not a phase of horizontal movement, o
 
 ## External forces
 
-Anything outside the movement layer, such as a rocket blast, a launch pad or wind, pushes the character through `MovementController.ApplyImpulse(Vector3 velocity, float decayTime)`. The **source owns the force**: it works out direction, falloff, strength and how long the push lasts, then hands over only the velocity and decay time. Do not add an event bus the character listens on, an impulse provider, or an `IImpulseReceiver` interface. `RocketJumpTester` is the reference caller.
+Anything outside the movement layer, such as a rocket blast, a launch pad or wind, pushes a character by raising an impulse on the static router: `ImpulseEvents.ApplyImpulse(GameObject target, Vector3 velocity, float decayTime, AnimationCurve falloff = null)`. The target is the character's `GameObject`, the one carrying its `MovementController` and `CharacterController`. The **source owns the force**: it works out direction, falloff with distance, strength, how long the push lasts and, optionally, the shape of its fade, then hands over only those. `ImpulseEvents` is the only channel. Do not add a second channel, an impulse provider, an `IImpulseReceiver` interface, or a method on `MovementController` that takes impulses. `RocketJumpTester` is the reference caller.
 
-**Impulses are a separate velocity, added at the end.** `MovementController` moves by `MovementMotor.Velocity + GetImpulseVelocity()`. The movement layer never sees impulses: no mode, provider, state or context property knows about them. Keep it that way. Do not reach into providers, and do not add impulse checks to a state.
+**Impulses are a separate velocity, held in the motor and added after the mode.** `ImpulseEvents` routes each impulse to the one receiver registered for its target, so a motor never sees an impulse meant for another character and does not know which `GameObject` it moves. `MovementController` registers its motor's `AddImpulse()` under its own `GameObject`. `MovementMotor.Velocity` is the current mode's velocity plus every impulse still fading, and `MovementController` moves by it alone. The motor reads no context for this. Modes, providers, states and contexts never see impulses: none of them knows about them. Keep it that way. Do not reach into providers, and do not add impulse checks to a state.
 
-Naming, all inside `MovementController`:
+**The registration must be released.** `ImpulseEvents` is static, so its table keeps every registered motor alive. `MovementController` registers in `OnEnable()` and calls `ImpulseEvents.Unregister()` in `OnDisable()`, so a disabled character is not pushed and impulses do not pile up while it is off. Anything else that builds a motor must do the same.
+
+Naming:
 
 | Name | What it is |
 | --- | --- |
-| `Impulse` | One push: a private nested struct holding `Velocity` (full strength), `DecayTime` and `Age`, all in seconds where timed. `CurrentVelocity` is the velocity faded linearly by age; `IsExpired` is age past decay time. |
-| `ApplyImpulse(velocity, decayTime)` | The only public entry. Adds one new `Impulse`. |
-| `_impulses` | Every impulse still fading. |
-| `GetImpulseVelocity()` | The sum of every impulse's `CurrentVelocity`, added to the move. |
-| `UpdateImpulses()` | Runs after the move. Ages each impulse by `fixedDeltaTime`, strips the vertical part from any driving into a floor or ceiling the move hit, and removes expired ones. |
+| `ImpulseEvents` | Static class at the core root. Holds only a table from target `GameObject` to receiver; `Register()` and `Unregister()` maintain it, and `ApplyImpulse()` calls the target's receiver, dropping the impulse if there is none. |
+| `MovementMotor.Impulse` | One push: a private nested struct holding `Velocity` (full strength), `DecayTime`, `Falloff` and `Age`, all in seconds where timed. `CurrentVelocity` is the velocity scaled by the falloff curve at `Age / DecayTime`, or faded linearly when `Falloff` is null; `IsExpired` is age past decay time. |
+| `MovementMotor.AddImpulse()` | The receiver. Adds one new `Impulse`, with no target check. Called only through `ImpulseEvents`, never by a source directly. A null curve, or one with no keys, is stored as null and fades linearly. |
+| `MovementMotor._impulses` | Every impulse still fading. |
+| `MovementMotor.TakeImpulseVelocity()` | After the mode runs. Sums every impulse's `CurrentVelocity` into `Velocity`, then ages each by `fixedDeltaTime` and removes expired ones. |
 
+- **The falloff curve maps progress to strength.** X runs from 0, when the impulse is applied, to 1, at its decay time; Y is the fraction of `Velocity` applied. A curve that stays above zero at X = 1 ends with a step down when the impulse expires. A decay time of zero ignores the curve.
 - **Each impulse is its own instance on its own clock.** Two blasts in quick succession stack, and each fades over its own decay time. A decay time of zero lasts exactly one physics step.
-- **Safe from either clock.** An impulse is only read and aged in `FixedUpdate()`, so one applied from Update, FixedUpdate or a trigger callback starts at full strength on the next step. A steady force, such as wind, is a zero-decay impulse applied once per step, from `FixedUpdate()`. Applied from `Update()`, it would be applied several times on frames between steps.
+- **Safe from either clock.** An impulse is only read and aged in `MovementMotor.Process()`, on the physics clock, so one applied from Update, FixedUpdate or a trigger callback starts at full strength on the next step. A steady force, such as wind, is a zero-decay impulse applied once per step, from `FixedUpdate()`. Applied from `Update()`, it would be applied several times on frames between steps.
 - **Gravity does not act on impulses.** Their decay time is what brings a launch back down, alongside gravity on the character's own fall in the vertical states.
 - **Launches need no help from the states.** An upward push outweighs `GroundingForce`, so the move lifts the character. `GroundedState` then sees it airborne and hands over to `FallingState` as for walking off a ledge.
-- **Known consequences of keeping it separate:** coyote time is still live during a launch, so a jump can be added on top. The jump cut trims only the jump, never the push. A push into a wall keeps pressing against it until it decays, since nothing cancels the sideways part on a side hit.
+- **Known consequences of keeping it separate:** coyote time is still live during a launch, so a jump can be added on top. The jump cut trims only the jump, never the push. Impulses ignore collisions entirely: a push into a wall, floor or ceiling keeps pressing against it until it decays. A blast straight up into a low ceiling therefore pins the character there for the decay time. This is deliberate for now; clipping would need the motor to hear about each move's collisions.
 
 ## Ground motion
 

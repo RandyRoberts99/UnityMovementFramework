@@ -9,9 +9,9 @@ namespace Radknee.MovementFramework.Examples
     /// MovingPlatform rather than a weapon. On Fire it sets off a blast where the camera is
     /// pointing and pushes every character in reach away from it, weaker with distance.
     ///
-    /// The blast does its own physics and hands each character only the velocity and how long it
-    /// takes to fade, through MovementController.ApplyImpulse(). That is the pattern for any source
-    /// of force: the movement layer knows nothing of blasts, pads or wind.
+    /// The blast does its own physics and hands each character only the velocity, how long it
+    /// takes to fade and how it fades, through ImpulseEvents.ApplyImpulse(). That is the pattern
+    /// for any source of force: the movement layer knows nothing of blasts, pads or wind.
     /// </summary>
     public class RocketJumpTester : MonoBehaviour
     {
@@ -24,6 +24,8 @@ namespace Radknee.MovementFramework.Examples
         [SerializeField] float blastStrength = 15f;
         [Tooltip("Seconds for the blast's push to fade from full strength to nothing.")]
         [SerializeField] float blastDecayTime = 0.75f;
+        [Tooltip("Strength of the push over its decay time: X runs 0 to 1 through the decay time, Y is the fraction of full strength. Leave empty to fade linearly.")]
+        [SerializeField] AnimationCurve blastFalloffCurve;
         [SerializeField] LayerMask hitLayers = Physics.DefaultRaycastLayers;
 
         IInputContext inputContext;
@@ -70,6 +72,7 @@ namespace Radknee.MovementFramework.Examples
 
             foreach (Collider collider in Physics.OverlapSphere(centre, blastRadius, Physics.AllLayers, QueryTriggerInteraction.Ignore))
             {
+                // Only characters can be pushed. An impulse aimed at anything else would go unheard.
                 if (collider.TryGetComponent(out MovementController movementController) == false)
                 {
                     continue;
@@ -83,7 +86,7 @@ namespace Radknee.MovementFramework.Examples
                 float falloff = 1f - Mathf.Clamp01(distance / blastRadius);
 
                 Vector3 velocity = direction * (blastStrength * falloff);
-                movementController.ApplyImpulse(velocity, blastDecayTime);
+                ImpulseEvents.ApplyImpulse(movementController.gameObject, velocity, blastDecayTime, blastFalloffCurve);
 
                 Debug.DrawRay(collider.bounds.center, velocity * 0.1f, Color.red, 1f);
             }
