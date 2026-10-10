@@ -31,14 +31,44 @@ namespace Radknee.Services
             _sprintAction = _playerActionMap.FindAction("Sprint", throwIfNotFound: true);
             _crouchAction = _playerActionMap.FindAction("Crouch", throwIfNotFound: true);
             _fireAction = _playerActionMap.FindAction("Fire", throwIfNotFound: true);
+
+            // Built in Awake, so the cursor is locked from the start of play.
+            LockCursor();
         }
 
         public void Process()
         {
-            SetInputContext();
+            bool relockedCursor = RelockCursor();
+            SetInputContext(relockedCursor);
         }
 
-        void SetInputContext()
+        /// <summary>
+        /// Takes the cursor lock back on a left click. The editor releases it on Escape or when
+        /// focus leaves the game view, and until the click the cursor stays free so the editor can
+        /// be used. Returns whether this frame's click was spent taking the lock.
+        /// </summary>
+        bool RelockCursor()
+        {
+            if (Cursor.lockState == CursorLockMode.Locked
+                || Mouse.current == null
+                || Mouse.current.leftButton.wasPressedThisFrame == false)
+            {
+                return false;
+            }
+
+            LockCursor();
+            return true;
+        }
+
+        // Locked to the centre of the game view and hidden, so mouse look has no screen edge to
+        // stop at.
+        void LockCursor()
+        {
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+        }
+
+        void SetInputContext(bool relockedCursor)
         {
             // Settings such as LookSensitivity are not written here; InputProvider owns them.
 
@@ -66,8 +96,9 @@ namespace Radknee.Services
             InputContext.SprintPressed = _sprintAction.triggered;
             InputContext.CrouchPressed = _crouchAction.triggered;
 
-            // Latched like the jump press, and cleared by whoever fires.
-            if (_fireAction.WasPressedThisFrame())
+            // Latched like the jump press, and cleared by whoever fires. A click that only took the
+            // cursor lock back is not a shot.
+            if (_fireAction.WasPressedThisFrame() && relockedCursor == false)
             {
                 InputContext.FirePressed = true;
             }

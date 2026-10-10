@@ -51,7 +51,8 @@ Dependencies point one way: the sample uses the core, services and generics; ser
 | A camera effect driven by movement (head bob, FOV kick) | Its own `MonoBehaviour` in `Examples/`, reading the contexts through `ServiceManager`. |
 | A new input | A binding in `Examples/Inputs.inputactions`, read by `InputService` into a property on `IInputContext`/`InputContext`. |
 | Look sensitivity, or another input setting | A field on `InputProvider`, which is the only writer of `InputContext` settings. |
-| An app-level Unity concern (cursor lock, pause, quit) | A new `IService` in `Services/`, registered in `MovementController.CreateServices()`. |
+| Cursor lock or visibility | `InputService`, which locks the cursor at the start of play. |
+| An app-level Unity concern (pause, quit) | A new `IService` in `Services/`, registered in `MovementController.CreateServices()`. |
 | A contract with no movement knowledge | `Generics/`. |
 
 Wrong, even though each looks reasonable:
@@ -60,7 +61,7 @@ Wrong, even though each looks reasonable:
 - An edit to `Assets/InputSystem_Actions.inputactions`. It is an unreferenced Unity template; the project-wide actions asset is `Examples/Inputs.inputactions`.
 - A third settings `MonoBehaviour`. `PhysicsProvider` bridges `PhysicsContext` settings and `InputProvider` bridges `InputContext` settings; extend one of them.
 - A new context interface such as `IStaminaContext` or `ICrouchContext`. Movement state goes on `IPhysicsContext` and resources on `IPlayerContext`; there is no third option.
-- Cursor locking or other app glue in `MovementController`. It is a service.
+- Cursor locking or other app glue in `MovementController`. The cursor lock is in `InputService`; other app glue is a service.
 - Head bob or FOV logic in `MovementController.Extrapolate()`. `Extrapolate()` only carries the simulated pose forward; effects are their own component.
 - A concrete mode, provider or state in the framework root. The core stays abstract.
 - A new handler interface, or implementing `IMovementHandler`. The handler interfaces are vestigial.
@@ -82,5 +83,4 @@ Wrong, even though each looks reasonable:
 
 ## Known gaps
 
-- **The cursor is never locked.** This belongs in a new service.
 - **There are no tests yet.** The first one needs more than a test folder: an assembly definition cannot reference `Assembly-CSharp`, so the test assembly can only see `Src/` once `Src/` has an assembly definition of its own. Ask before adding one, since it changes how the whole project compiles.
