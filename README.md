@@ -39,6 +39,28 @@ Select the **Scripts** object in the scene. Changes made during Play mode take e
 - **Input Provider**: look sensitivity.
 - **Rocket Jump Tester**: the test blast's range, radius, strength and fade.
 
+## Structure
+
+```
+MovementController (MonoBehaviour)  drives everything, owns the CharacterController
+  └─ MovementMotor                  runs the active mode and switches between modes
+       └─ MovementMode              one ability, e.g. DefaultMode; holds several providers
+            └─ MovementProvider     one slice of the output; a state machine
+                 └─ MovementState   one phase of that slice, e.g. Grounded, Jumping, Falling
+```
+
+The sample's `DefaultMode` has five providers:
+
+| Provider | Owns | States |
+| --- | --- | --- |
+| `RotationProvider` | Character yaw and camera pitch | `RotatingState` |
+| `HorizontalMovementProvider` | Velocity X and Z | `IdleState`, `MovingState` |
+| `VerticalMovementProvider` | Velocity Y | `GroundedState`, `JumpingState`, `FallingState` |
+| `CarryProvider` | No axis: adds the velocity of whatever the character stands on | `CarriedState`, `ReleasedState` |
+| `PushProvider` | No axis: adds a push out of the way of moving colliders | `PushedState` |
+
+A mode combines its providers' outputs each physics step. It **adds** their velocities and **multiplies** their rotations together. Each provider therefore owns a part of the output that no other provider writes: an axis of velocity, or a rotation. If two providers write the same axis, the values are added together and the movement doubles without any error. `CarryProvider` and `PushProvider` are the deliberate exceptions: they own no axis, and add an offset from the world on top of the character's own movement.
+
 ## Building on it
 
 New behaviour goes in `Assets/Src/Frameworks/MovementFramework/Examples/`, and the core at the root of `MovementFramework/` stays abstract. A new ability is a new mode under `Examples/Modes/`, a new phase of existing movement is a new state in an existing provider, and an external force is applied through `ImpulseEvents.ApplyImpulse()`.
