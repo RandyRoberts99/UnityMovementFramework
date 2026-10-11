@@ -1,7 +1,7 @@
 using UnityEngine;
 
 // Runs before MovementController (-100) so the character measures this step's pose. Keep in
-// step with MovingPlatform; the framework CLAUDE.md, under Ground motion, says why.
+// step with MovingPlatform; the framework CLAUDE.md, under Carrying, says why.
 [DefaultExecutionOrder(-200)]
 public class CubeRotator : MonoBehaviour
 {

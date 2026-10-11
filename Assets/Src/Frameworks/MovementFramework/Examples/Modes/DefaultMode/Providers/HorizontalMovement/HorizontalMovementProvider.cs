@@ -1,28 +1,30 @@
-using Radknee.Generics;
+﻿using Radknee.Generics;
 using System.Collections.Generic;
 
 namespace Radknee.MovementFramework.Examples
 {
-    public class VerticalMovementProvider : MovementProvider
+    /// <summary>
+    /// The character's own steering on X and Z, on the ground and in the air.
+    /// </summary>
+    public class HorizontalMovementProvider : MovementProvider
     {
-        public VerticalMovementProvider(IInputContext inputContext, IPhysicsContext physicsContext)
+        public HorizontalMovementProvider(IInputContext inputContext, IPhysicsContext physicsContext) 
         {
             InputContext = inputContext;
             PhysicsContext = physicsContext;
 
             States = CreateStates();
-            CurrentState = RequestState<GroundedState>();
+            CurrentState = RequestState<IdleState>();
             CurrentState.Start();
         }
-
         public override List<IState> CreateStates()
         {
             List<IState> states = new()
             {
-                new GroundedState(this),
-                new JumpingState(this),
-                new FallingState(this)
+                new IdleState(this),
+                new MovingState(this),
             };
+
             return states;
         }
     }

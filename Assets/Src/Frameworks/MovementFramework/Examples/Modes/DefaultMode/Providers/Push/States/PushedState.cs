@@ -74,7 +74,7 @@ namespace Radknee.MovementFramework.Examples
         }
 
         /// <summary>
-        /// A kinematic body other than the ground, which GroundMotionProvider already carries.
+        /// A kinematic body other than the ground, which CarryProvider already carries.
         /// </summary>
         private bool IsPusher(Collider other)
         {

@@ -49,13 +49,13 @@ namespace Radknee.MovementFramework.Examples
         {
             // Order matters for two pairs:
             // - RotationProvider before HorizontalMovementProvider, which steers by its Rotation.
-            // - GroundMotionProvider before PushProvider, which skips the ground it records.
+            // - CarryProvider before PushProvider, which skips the ground it records.
             List<MovementProvider> movementProviders = new()
             {
                 new RotationProvider(_inputContext, _physicsContext),
                 new HorizontalMovementProvider(_inputContext, _physicsContext),
                 new VerticalMovementProvider(_inputContext, _physicsContext),
-                new GroundMotionProvider(_inputContext, _physicsContext),
+                new CarryProvider(_inputContext, _physicsContext),
                 new PushProvider(_inputContext, _physicsContext)
             };
 

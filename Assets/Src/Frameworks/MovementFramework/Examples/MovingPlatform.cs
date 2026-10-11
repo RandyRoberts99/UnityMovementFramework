@@ -3,7 +3,7 @@ using UnityEngine;
 namespace Radknee.MovementFramework.Examples
 {
     // Runs before MovementController (-100) so the character measures this step's pose. Keep
-    // in step with CubeRotator; the framework CLAUDE.md, under Ground motion, says why.
+    // in step with CubeRotator; the framework CLAUDE.md, under Carrying, says why.
     [DefaultExecutionOrder(-200)]
     public class MovingPlatform : MonoBehaviour
     {

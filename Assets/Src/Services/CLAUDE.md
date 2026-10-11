@@ -24,7 +24,7 @@ Framework infrastructure: the service locator, the services that fill the moveme
 
 `SprintHeld` is a level, assigned from `IsPressed()`. `MovingState` reads it.
 
-**`CrouchPressed` is not safe to use as it is.** It is assigned from `InputAction.triggered`, an unlatched edge, so a state reading it in FixedUpdate will miss presses. Before any state consumes it, convert it the way `JumpPressed` works: latch it here and clear it in the consuming state's `Start()`. If it is really a hold, assign it from `IsPressed()` as a level instead, as `SprintHeld` is.
+**`CrouchPressed` and `JumpReleased` are not safe to use as they are.** Each is assigned from an unlatched edge (`InputAction.triggered` and `WasReleasedThisFrame()`), so a state reading it in FixedUpdate will miss presses. Nothing reads either yet. Before a state consumes one, convert it the way `JumpPressed` works: latch it here and clear it in the consuming state. If crouch is really a hold, assign it from `IsPressed()` as a level instead, as `SprintHeld` is. The jump cut does not need `JumpReleased`: it reads the `JumpHeld` level.
 
 Known leak, not to be copied: `InputService` hardcodes the sample's map name, and `PhysicsProvider` imports `Radknee.MovementFramework.Examples` without using it. New service code must not reference `Examples/`.
 

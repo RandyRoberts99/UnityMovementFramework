@@ -4,19 +4,17 @@ using System.Collections.Generic;
 namespace Radknee.MovementFramework.Examples
 {
     /// <summary>
-    /// Moves the character out of the way of moving colliders. Owns no axis: its velocity is an
-    /// additive offset on all three, recomputed every step. Must run after GroundMotionProvider,
-    /// or a rising platform both carries and pushes the character.
+    /// The character's own jumping and falling on Y.
     /// </summary>
-    public class PushProvider : MovementProvider
+    public class VerticalMovementProvider : MovementProvider
     {
-        public PushProvider(IInputContext inputContext, IPhysicsContext physicsContext)
+        public VerticalMovementProvider(IInputContext inputContext, IPhysicsContext physicsContext)
         {
             InputContext = inputContext;
             PhysicsContext = physicsContext;
 
             States = CreateStates();
-            CurrentState = RequestState<PushedState>();
+            CurrentState = RequestState<GroundedState>();
             CurrentState.Start();
         }
 
@@ -24,9 +22,10 @@ namespace Radknee.MovementFramework.Examples
         {
             List<IState> states = new()
             {
-                new PushedState(this)
+                new GroundedState(this),
+                new JumpingState(this),
+                new FallingState(this)
             };
-
             return states;
         }
     }

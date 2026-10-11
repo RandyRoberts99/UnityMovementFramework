@@ -1,6 +1,6 @@
 # Movement framework
 
-The **core** is the files at this folder's root: the four abstract layers, the contexts and the output interfaces, namespace `Radknee.MovementFramework`. It is generic and must never reference `Examples/`.
+The **core** is the files at this folder's root: the four abstract layers, the contexts, the output interfaces, `ImpulseEvents` and `PhysicsUtilities`, namespace `Radknee.MovementFramework`. It is generic and must never reference `Examples/`.
 
 **`Examples/`** is the reference sample, namespace `Radknee.MovementFramework.Examples`. Every concrete mode, provider and state lives there, and so does `MovementController`, the `MonoBehaviour` that drives the framework. A new movement ability is sample content. The core changes only when the ability needs a new *generic* contract, such as a property on `IPhysicsContext`.
 
@@ -10,48 +10,55 @@ Pick the layer first, by what the new behaviour does:
 
 | The behaviour… | Layer | Goes in |
 | --- | --- | --- |
-| Is a distinct ability (slide, dash, wallrun, climb), even if it changes only one slice | New mode, with its own providers | `Examples/<Name>Mode/<Name>Mode.cs` |
-| Needs an output slice no provider in its mode owns (an axis of velocity, or a rotation) | New provider and its states | `Examples/<Mode>/<Slice>/` |
-| Is a new phase of the locomotion a provider already runs (e.g. a landing phase between `FallingState` and `GroundedState`) | New state in that provider | Beside that provider |
+| Is a distinct ability (slide, dash, wallrun, climb), even if it changes only one slice | New mode, with its own providers | `Examples/Modes/<Name>Mode/<Name>Mode.cs` |
+| Needs an output slice no provider in its mode owns (an axis of velocity, or a rotation) | New provider and its states | `Examples/Modes/<Mode>/Providers/<Slice>/`, states in its `States/` |
+| Is a new phase of the locomotion a provider already runs (e.g. a landing phase between `FallingState` and `GroundedState`) | New state in that provider | That provider's `States/` folder |
 | Changes what an existing phase does | That state's `Start()`/`Process()` | — |
 | Changes when phases change | That state's `Switch()` | — |
 | Moves between modes | The *current* mode's `Switch()` | — |
 | Needs a tuned number | Settings property on `IPhysicsContext` | See `Assets/Src/Services/CLAUDE.md` |
 | Needs memory across steps, entries or states (timers, crouch height) | Runtime property on `IPhysicsContext`, reset in `Start()` if per-entry | — |
 | Checks or spends a resource (stamina, dash charges) | Reads and spends through `IPlayerContext`; never regenerates it | Planned: see `Assets/Src/Services/CLAUDE.md` |
-| Needs to know about the world (a wall, a ledge) | A `Physics.*` query in the state or mode whose `Switch()`/`Process()` makes the decision | — |
+| Needs to know about the world (a wall, a ledge) | A `Physics.*` query, or a `PhysicsUtilities` function if it is complex, in the state or mode whose `Switch()`/`Process()` makes the decision | — |
 | Changes how the character's pose is drawn between steps | `MovementController.Extrapolate()`, from motor outputs and contexts only | — |
 | Is a camera effect driven by movement (head bob, FOV kick) | Its own `MonoBehaviour` in `Examples/` | See below |
 
 A distinct ability is a mode even when it touches one slice, which is why `DefaultMode` carries `CanSlide()` beside `CanWallrun()` and `CanClimb()`. States are for the phases of a mode's own locomotion (idle and moving; grounded, jumping and falling), not for abilities.
 
-**Mode or modifier.** It is a mode when it changes the *rules*: what the character may do, its capsule, or which transitions exist. It is a modifier when it only swaps a number an existing state already uses. So **crouch is `CrouchMode`**, because it changes capsule height and blocks jumping. **Sprint is not a mode**: `MovingState` reads the `SprintHeld` level from `InputContext` and targets the `SprintSpeed` setting instead of `MovementSpeed`. Sprint costs nothing yet; once `IPlayerContext` exists, `MovingState` spends stamina through it.
+**Mode or modifier.** It is a mode when it changes the *rules*: what the character may do, its capsule, or which transitions exist. It is a modifier when it only swaps a number an existing state already uses. So **crouch, once built, is a `CrouchMode`**, because it changes capsule height and blocks jumping. **Sprint is not a mode**: `MovingState` reads the `SprintHeld` level from `InputContext` and targets the `SprintSpeed` setting instead of `MovementSpeed`. Sprint costs nothing yet; once `IPlayerContext` exists, `MovingState` spends stamina through it.
 
-**World queries** use the `CharacterController` on `PhysicsContext` for the capsule's position, radius and height, and run where the decision is made: a mode's `Switch()` for entry (`DefaultMode.CanWallrun()`), a state's `Switch()` or `Process()` inside a mode. Nothing caches query results on a context for other code to read, unless two providers genuinely need the same result in one step.
+**World queries** place the capsule at `PhysicsContext.Position` and `Rotation`, never at the transform, which still holds the drawn pose while the motor runs. Its radius, height and centre come from the `CharacterController` on `PhysicsContext`, and `PhysicsUtilities.CapsuleSegment()` combines the two. Queries run where the decision is made: a mode's `Switch()` for entry (`DefaultMode.CanWallrun()`), a state's `Switch()` or `Process()` inside a mode. Nothing caches query results on a context for other code to read, unless two providers genuinely need the same result in one step.
 
 **Camera-effect components** are sample `MonoBehaviour`s on the camera, in namespace `Radknee.MovementFramework.Examples`. They read the contexts through `ServiceManager` in `LateUpdate()`, so they see the pose `MovementController.Update()` has just drawn. They must not write what `MovementController` writes: the character's transform and the camera's `localRotation`. Head bob belongs in the camera's `localPosition`, and FOV in `Camera.fieldOfView`.
 
-**Current layout.** New files follow it until a deliberate migration:
+**Layout.** Every mode takes this shape, and new files follow it:
 
 ```
 Examples/
   MovementController.cs
   Inputs.inputactions               project-wide actions asset
+  SampleScene.unity                 the only scene
   MovingPlatform.cs, CubeRotator.cs, RocketJumpTester.cs   scene test props
-  DefaultMode/
-    DefaultMode.cs
-    HorizontalMovement/             one folder per provider: provider + its states
-      HorizontalMovementProvider.cs, IdleState.cs, MovingState.cs
-    VerticalMovement/
-    Rotation/
-    GroundMotion/
-    Push/
-  <Name>Mode/                       a new mode takes the same shape
+  Modes/                            one folder per mode
+    DefaultMode/
+      DefaultMode.cs
+      Providers/                    one folder per provider
+        HorizontalMovement/
+          HorizontalMovementProvider.cs
+          States/                   the provider's states
+            IdleState.cs, MovingState.cs
+        VerticalMovement/
+        Rotation/
+        Carry/
+        Push/
+    <Name>Mode/                     a new mode takes the same shape
 ```
 
-One class per file. Names are `<Name>Mode`, `<Slice>Provider` and `<Phase>State`. A mode that needs a provider living in another mode's folder references it where it is.
+One class per file. Names are `<Name>Mode`, `<Slice>Provider` and `<Phase>State`. A provider lives under the mode that created it, and there is no shared providers folder: a mode that needs a provider from another mode's folder references it where it is.
 
-**Target layout.** It is reached in one deliberate migration, never piecemeal inside a feature: `Examples/Modes/<Name>Mode.cs` and `Examples/Providers/<Slice>/` (provider and its states). Do not move existing files as part of other work.
+Providers come in two families, named differently. One that produces the character's own movement is named by the slice it owns: `RotationProvider`, `HorizontalMovementProvider`, `VerticalMovementProvider`. One that adds an offset from the world is named by what it does to the character: `CarryProvider`, `PushProvider`. Never name an offset after movement or motion: `CarryProvider` was once `GroundMotionProvider`, which read as walking along the ground.
+
+Do not move existing files as part of other work. A layout change is a deliberate change of its own, made in one step, with this tree and the README updated to match.
 
 **Wrong placements**, each tempting:
 
@@ -76,17 +83,17 @@ Four nested layers, each a state machine or a container of them. Understanding t
 MovementController (MonoBehaviour)  drives everything, owns CharacterController
   └─ MovementMotor                  picks the active MovementMode
        └─ MovementMode              e.g. DefaultMode; holds several providers
-            └─ MovementProvider     Rotation, Horizontal, Vertical; one state machine each
+            └─ MovementProvider     Rotation, Horizontal, Vertical, Carry, Push; one state machine each
                  └─ MovementState   e.g. Grounded, Jumping, Falling
 ```
 
-**Providers are summed, not chained.** `DefaultMode.Process()` zeroes its velocity, runs every provider, and adds each provider's `Velocity` into the total. Each provider is therefore responsible for a disjoint slice of the vector: `HorizontalMovementProvider` writes X and Z, `VerticalMovementProvider` writes Y, `RotationProvider` writes none. A provider that writes an axis another provider owns will silently double it. New providers must claim an unowned axis or be designed as an additive offset. `GroundMotionProvider` and `PushProvider` are the additive offsets: they own no axis and add on all three, the ground's velocity and the push away from moving colliders (see Ground motion and Pushing).
+**Providers are summed, not chained.** `DefaultMode.Process()` zeroes its velocity, runs every provider, and adds each provider's `Velocity` into the total. Each provider is therefore responsible for a disjoint slice of the vector: `HorizontalMovementProvider` writes X and Z, `VerticalMovementProvider` writes Y, `RotationProvider` writes none. A provider that writes an axis another provider owns will silently double it. New providers must claim an unowned axis or be designed as an additive offset. `CarryProvider` and `PushProvider` are the additive offsets: they own no axis and add on all three, the ground's velocity and the push away from moving colliders (see Carrying and Pushing).
 **Rotations compose by multiplication.** Same rule, different operator. `DefaultMode.Process()` resets `Rotation` and `CameraRotation` to identity and multiplies each provider's in, so a provider that produces no rotation contributes nothing — which is why `MovementProvider.Rotation` defaults to identity rather than `default`, since a zeroed quaternion would annihilate the product. Only `RotationProvider` claims either slice today.
 
 **Two ordering dependencies.** The velocity sum is order-independent, but two pairs of providers are coupled through the context, so their order in `DefaultMode.CreateMovementProviders()` matters:
 
 - `RotationProvider` before `HorizontalMovementProvider`. `RotatingState` writes `PhysicsContext.Rotation` and `MovingState` reads it to steer, so the reverse order leaves movement a physics step behind the camera.
-- `GroundMotionProvider` before `PushProvider`. `CarriedState` records this step's `GroundTransform` and `PushedState` skips that collider, so the reverse order skips last step's ground and lets a rising platform both carry and push the character.
+- `CarryProvider` before `PushProvider`. `CarriedState` records this step's `GroundTransform` and `PushedState` skips that collider, so the reverse order skips last step's ground and lets a rising platform both carry and push the character.
 
 Anything else that couples two providers through the context will need the same care.
 
@@ -99,7 +106,7 @@ Anything else that couples two providers through the context will need the same 
 - Every `MovementState` subclass takes the base `MovementProvider` in its constructor, uniformly. States must never narrow that parameter or cast to a concrete provider type. A state sees the world only through `movementProvider.PhysicsContext` and `movementProvider.InputContext`, both of which exist on every provider regardless of its type.
 - States are **preallocated singletons**. `CreateStates()` builds one instance of each and `RequestState<T>()` finds it by type, so the same object is reused for every visit. States therefore hold no mutable fields of their own: anything that varies per entry, such as `JumpCutApplied`, lives in a context and is reset in `Start()`. A field initialized only at construction would be correct on the first visit and stale on every one after it.
 
-**Contexts are the only window onto the world.** States read `IInputContext` and `IPhysicsContext` off their provider (and `IPlayerContext` once it exists), and touch no Unity singleton directly, with two exceptions: `Time.fixedDeltaTime`, the physics step every state scales by, and `Physics.*` queries, positioned from the context's `CharacterController`. `ServiceManager` is a static service locator populated in `MovementController.Awake()`.
+**Contexts are the only window onto the world.** States read `IInputContext` and `IPhysicsContext` off their provider (and `IPlayerContext` once it exists), and touch no Unity singleton directly, with two exceptions: `Time.fixedDeltaTime`, the physics step every state scales by, and `Physics.*` queries, made directly or through `PhysicsUtilities` and positioned at `PhysicsContext.Position`. `ServiceManager` is a static service locator populated in `MovementController.Awake()`.
 
 `MovementProvider.Process()` is `virtual` so a provider can do work before its states run, and anything overriding it must call `base.Process()` or the state machine stops advancing. Per-step bookkeeping that states own belongs in the states, not in that override.
 
@@ -198,11 +205,11 @@ Naming:
 - **Launches need no help from the states.** An upward push outweighs `GroundingForce`, so the move lifts the character. `GroundedState` then sees it airborne and hands over to `FallingState` as for walking off a ledge.
 - **Known consequences of keeping it separate:** coyote time is still live during a launch, so a jump can be added on top. The jump cut trims only the jump, never the push. Impulses ignore collisions entirely: a push into a wall, floor or ceiling keeps pressing against it until it decays. A blast straight up into a low ceiling therefore pins the character there for the decay time. This is deliberate for now; clipping would need the motor to hear about each move's collisions.
 
-## Ground motion
+## Carrying
 
-`GroundMotionProvider` carries the character with whatever it stands on. It has two states: `CarriedState` while `isGrounded` and `ReleasedState` otherwise.
+`CarryProvider` carries the character with whatever it stands on. It has two states: `CarriedState` while `isGrounded` and `ReleasedState` otherwise.
 
-- **The ground's velocity is measured, not declared.** Each grounded step, `CarriedState` finds the collider underfoot with a `SphereCast` and records its transform and `localToWorldMatrix` in `PhysicsContext.GroundTransform` and `GroundLocalToWorld`. The next step maps `Position` through the old matrix and the current one; the difference over `fixedDeltaTime` is the velocity. Translation and rotation both come through, and platforms need no component or interface: anything whose transform moves carries the character. Do not add an `IMovingPlatform` for this.
+- **The ground's velocity is measured, not declared.** Each grounded step, `CarriedState` finds the collider underfoot with `PhysicsUtilities.FindGround()`, a `SphereCast`, and records its transform and `localToWorldMatrix` in `PhysicsContext.GroundTransform` and `GroundLocalToWorld`. The next step maps `Position` through the old matrix and the current one; the difference over `fixedDeltaTime` is the velocity (`PhysicsUtilities.SurfaceVelocity()`). Translation and rotation both come through, and platforms need no component or interface: anything whose transform moves carries the character. Do not add an `IMovingPlatform` for this.
 - **The first step on new ground carries nothing**, because there is no earlier matrix to compare against. `ReleasedState.Start()` clears `GroundTransform` for this reason: landing back on the platform just left must not compare against a matrix several steps stale, which would read as a huge velocity.
 - **Leaving the ground keeps horizontal momentum, not vertical.** `ReleasedState` holds the ground's X and Z unchanged until landing. It drops Y, because a constant offset that gravity never acts on would carry the character upward for the whole flight. On landing, `CarriedState` replaces the momentum with the new ground's velocity, so it stops at once rather than bleeding off.
 - **A platform must hold the step's pose twice before the character moves.** `CarriedState` measures the platform's *transform*, and `CharacterController.Move()` collides with its *physics* copy. So `MovingPlatform` and `CubeRotator` run at execution order -200, ahead of `MovementController`'s -100. Each `FixedUpdate()` sets the pose for `Time.fixedTime` on the transform and on a kinematic `Rigidbody`, which moves the collider in the physics scene at once, with no `Physics.SyncTransforms()`. A platform that moves its transform alone this early leaves its collider a step behind the measurement. A rising platform then carries the character off it, and `isGrounded` flickers.
@@ -213,12 +220,12 @@ Naming:
 `PushProvider` has one state, `PushedState`, which runs every step, grounded or not, and moves the character out of the way of moving colliders.
 
 - **`CharacterController` does not depenetrate from moving colliders.** Its overlap recovery works only against static colliders. So nothing else gets the character out of a kinematic body that has moved into it.
-- **The push is an additive velocity, worked out from the pushers alone.** `PushedState` sees only the contexts, not the other providers' velocities. For each pusher near the capsule it finds which way is out and how far the pusher is from the capsule's core segment. It outputs the velocity that takes the character back to the hold distance, added to the sum like any other provider's. Each step's push equals the distance the pusher moved, so `CharacterController.velocity` carries it and `Extrapolate()` draws the character moving with the pusher. The push carries no momentum: it stops when the pusher stops or moves away.
+- **The push is an additive velocity, worked out from the pushers alone.** `PushedState` sees only the contexts, not the other providers' velocities. For each pusher near the capsule, `PhysicsUtilities.TryMeasureSeparation()` finds which way is out and how far the pusher is from the capsule's core segment. It outputs the velocity that takes the character back to the hold distance, added to the sum like any other provider's. Each step's push equals the distance the pusher moved, so `CharacterController.velocity` carries it and `Extrapolate()` draws the character moving with the pusher. The push carries no momentum: it stops when the pusher stops or moves away.
 - **Walls are held a step's worth of the character's speed beyond the skin.** The push and the character's own movement go out in one sweep. A pusher inside the skin blocks that sweep along its normal, which cancels the push together with the step towards it. The pusher then gains on the character every step until it is inside, which caused the choppy pushing and the walk-throughs. The hold distance is therefore `radius + skinWidth + lookahead`, where `lookahead` is the larger of `MovementSpeed` and the controller's last speed, times `fixedDeltaTime`. A step towards the pusher can never close that, so the push always outweighs it and the sweep starts clear. The character can still walk right up to the skin. The cost is a gap of up to `lookahead` (10 cm at the defaults) between the character and a pusher it is not walking into.
 - **Something walkable is held only at the skin.** A pusher whose normal is within `slopeLimit` of up is a surface the character could stand on, rising into it from below. It gets no lookahead, because holding it further out would leave the character hovering where the sweep never touches it and `isGrounded` never comes.
 - **A core inside a pusher falls back to `Physics.ComputePenetration`.** The nearest-points measure cannot tell which way is out once the capsule's core segment is inside the collider. That takes a pusher moving more than the skin in one step, or a teleport into one. Skipping the collider then would let the character walk through it.
-- **A pusher is a collider on a kinematic `Rigidbody`**, which is what `MovingPlatform` and `CubeRotator` add to themselves. Static colliders are skipped because the controller handles them, and so are non-convex meshes, which `Collider.ClosestPoint` cannot measure. The current ground is skipped because `GroundMotionProvider` already carries the character with it.
-- **A pusher must move before the character.** The push measures the pusher where it is now, so a platform must follow the Ground motion rules: execution order ahead of -100, with its pose set on the body in `FixedUpdate()`.
+- **A pusher is a collider on a kinematic `Rigidbody`**, which is what `MovingPlatform` and `CubeRotator` add to themselves. Static colliders are skipped because the controller handles them, and so are non-convex meshes, which `Collider.ClosestPoint` cannot measure. The current ground is skipped because `CarryProvider` already carries the character with it.
+- **A pusher must move before the character.** The push measures the pusher where it is now, so a platform must follow the Carrying rules: execution order ahead of -100, with its pose set on the body in `FixedUpdate()`.
 
 ## Rotation
 
@@ -247,7 +254,7 @@ It holds two kinds of property, written by different owners:
 
 ## Conventions
 
-- **Do not add a class to hold shared behaviour.** The four layers are the whole vocabulary, and a new class is warranted only when it is a new *concept* — another mode, provider, or state — never when it is a home for a helper. **`PhysicsUtilities` is the one exception** (see the root `CLAUDE.md`): static functions that take specific values, never a context, and resolve one physics task for a state (`FindGround()`, `SurfaceVelocity()`, `TryMeasureSeparation()`, `AirAccelerate()`). State bookkeeping such as `UpdateJumpBuffer()` reads input and writes the context, so it is not physics and stays in the state. An intermediate base such as a `VerticalMovementState` between `MovementState` and the vertical states is the wrong answer: it adds a layer to a framework whose layers are the thing you have to hold in your head, plus a file and a `.meta`, to save a few lines.
+- **Do not add a class to hold shared behaviour.** The four layers are the whole vocabulary, and a new class is warranted only when it is a new *concept* — another mode, provider, or state — never when it is a home for a helper. **`PhysicsUtilities` is the one exception** (see the root `CLAUDE.md`): static functions that take specific values, never a context, and resolve one physics task for a state (`CapsuleSegment()`, `FindGround()`, `SurfaceVelocity()`, `TryMeasureSeparation()`, `AirAccelerate()`). State bookkeeping such as `UpdateJumpBuffer()` reads input and writes the context, so it is not physics and stays in the state. An intermediate base such as a `VerticalMovementState` between `MovementState` and the vertical states is the wrong answer: it adds a layer to a framework whose layers are the thing you have to hold in your head, plus a file and a `.meta`, to save a few lines.
 - **`MovementState` and `MovementProvider` are contracts, not toolboxes.** `MovementState` declares `Start`/`Process`/`End`/`Switch` and holds the provider reference; that is all it may hold. Behaviour belongs in the concrete state that performs it, even when two states perform something similar — see the duplicated `UpdateJumpBuffer()` in `FallingState` and `JumpingState`. Shared *data* goes on `PhysicsContext`; shared *behaviour* is duplicated or left out, whichever the state genuinely needs. A helper on the base is reachable from every state in every provider, which is how a per-provider concern gets run twice a step.
 - **The handler interfaces are vestigial.** `IRotationHandler` and `ICameraRotationHandler` are implemented by `RotatingState`, and `IMovementHandler` by nothing. Do not implement them in new states or add new ones.
 
@@ -258,4 +265,4 @@ Scaffolding that exists but does nothing yet. Do not assume these work.
 - `MovementMotor.Move()`, `Rotate()` and `RotateCamera()` are empty.
 - `DefaultMode.CanWallrun()`, `CanClimb()` and `CanSlide()` return false, and only one mode is registered.
 - `IPlayerContext` does not exist yet. The first resource to be added brings it into being: the interface and implementation go at the core root beside the other contexts, and `MovementProvider` gains a `PlayerContext` property set in every provider's constructor like the other two.
-- `MovementController` declares `namespace Radknee.Gameplay`, a legacy name. New sample files use `Radknee.MovementFramework.Examples`.
+- `MovementController` declares `namespace Radknee.Gameplay`, a legacy name, and `CubeRotator` declares none. New sample files use `Radknee.MovementFramework.Examples`.
