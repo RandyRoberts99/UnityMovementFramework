@@ -1,205 +1,51 @@
 # Unity Movement Framework
 
-A state-machine-driven framework for first-person character movement in Unity, plus a sample character that uses it.
+A state-machine-driven framework for first-person character movement in Unity, with a sample character built on it.
 
-> **Work in progress.** The architecture is settled. The sample has one movement mode so far, and the APIs may still change.
+> **Work in progress.** The architecture is settled, but the sample has one movement mode so far and the APIs may still change.
 
-## Goals
+## Why
 
-Character controllers often start as a single `Update()` method and grow until every new ability is a risk to the old ones. This framework aims to keep movement code composable as it grows:
+Character controllers often start as one `Update()` method and grow until every new ability puts the old ones at risk. This framework keeps movement code composable as it grows:
 
-- **Add abilities without editing existing ones.** Each ability is its own mode, built from small providers and states. Adding a slide or a wallrun should not mean editing jumping.
-- **Keep the core generic.** The framework core knows nothing about any concrete ability, scene or input asset. Everything concrete lives in the sample, which you extend or replace.
-- **Keep the simulation on the physics clock.** Movement runs only in `FixedUpdate`, so it behaves the same at any frame rate. Drawing is a separate step that carries the latest physics step forward to the current frame, so motion and mouse look stay smooth between steps.
-- **Never drop input.** Input is read once per rendered frame and consumed once per physics step. Every input is carried across that gap in a defined way, so presses and mouse movement are never lost.
-- **Tune in the inspector.** Every tuning value is exposed on a scene component and can be changed during Play mode.
+- **Abilities are isolated.** Each ability is its own mode, built from small state machines, so adding a slide or a wallrun does not mean editing jumping.
+- **The core is generic.** It knows nothing about any concrete ability, scene or input asset. Everything concrete lives in the sample, which you extend or replace.
+- **Movement is frame-rate independent.** The simulation runs only on the physics clock, and drawing carries the latest physics step forward to the current frame, so motion and mouse look stay smooth.
+- **Input is never dropped.** Presses and mouse movement read each frame are carried to the next physics step, so none are lost between them.
+- **Everything is tunable live.** Every tuning value is exposed in the inspector and can be changed during Play mode.
 
-## What the sample does
+## Getting started
 
-The sample character in `SampleScene` has:
+Requires Unity **6000.3.9f1**. The Universal Render Pipeline and Input System 1.18.0 are listed in `Packages/manifest.json`, so Unity installs them on first open.
 
-- Walking with inertia: acceleration towards the input, and drag to coast to a stop.
-- Sprinting, at a higher speed reached with the same inertia.
-- Quake-style air control: steering in the air adds speed but never brakes, so momentum from a blast is kept.
-- Mouse look, with clamped pitch.
-- Variable-height jumps: tap for a short hop, hold for a full jump.
-- Coyote time: a jump still counts for a moment after walking off a ledge.
-- Jump buffering: a press made just before landing fires on touchdown.
-- Air jumps: a double jump by default, configurable from zero upwards.
-- Ceiling detection that ends a jump when the character's head hits something.
-- Moving and rotating platforms that carry the character along.
-- Pushing: moving objects push the character out of their way instead of passing through it.
-- External forces applied as impulses, tried out with a test rocket launcher that blasts the character around.
+1. Clone the repository and open the folder in Unity Hub with Unity 6000.3.9f1.
+2. Open `Assets/Src/Frameworks/MovementFramework/Examples/SampleScene.unity` and press Play.
+
+The cursor locks when Play starts. Press Escape to release it, and click in the Game view to lock it again.
 
 | Input | Action |
 | --- | --- |
 | W A S D | Move |
 | Mouse | Look |
-| Space | Jump |
+| Space | Jump: tap for a hop, hold for a full jump, press again in the air to double jump |
 | Left Shift | Sprint |
-| Left mouse button | Fire the test rocket launcher |
+| Left mouse button | Fire a test rocket launcher that blasts the character around |
 
-Left Ctrl (crouch) is bound in the input asset but not used yet.
+## Tuning
 
-## Getting started
+Select the **Scripts** object in the scene. Changes made during Play mode take effect immediately, but Unity discards them when you stop, so copy any values you want to keep back in edit mode.
 
-### Requirements
+- **Physics Provider**: speeds, acceleration and drag, jump power, gravity, coyote time, jump buffer, air jumps and pitch limits.
+- **Input Provider**: look sensitivity.
+- **Rocket Jump Tester**: the test blast's range, radius, strength and fade.
 
-- Unity **6000.3.9f1**
-- Universal Render Pipeline and Input System 1.18.0, both already listed in `Packages/manifest.json`, so Unity installs them on first open
+## Building on it
 
-### Run the sample
+New behaviour goes in `Assets/Src/Frameworks/MovementFramework/Examples/`, and the core at the root of `MovementFramework/` stays abstract. A new ability is a new mode under `Examples/Modes/`, a new phase of existing movement is a new state in an existing provider, and an external force is applied through `ImpulseEvents.ApplyImpulse()`.
 
-1. Clone the repository.
-2. Open the folder in Unity Hub with Unity 6000.3.9f1.
-3. Open `Assets/Src/Frameworks/MovementFramework/Examples/SampleScene.unity` and press Play.
+The `CLAUDE.md` files in the repository root, `Assets/Src/Frameworks/MovementFramework/` and `Assets/Src/Services/` are the full design notes: how the framework works, where each kind of code goes, and the rules that keep it working. They are written for both people and AI coding assistants.
 
-The cursor is locked and hidden when Play starts. Press Escape to release it, and click in the Game view to lock it again. That click does not fire.
-
-### Tune the movement
-
-Select the **Scripts** object in the scene. Two of its components write their values into the framework every frame, so changes made during Play mode take effect immediately:
-
-- **Physics Provider** holds movement and sprint speed, acceleration and drag on the ground and in the air, jump power, gravity, grounding force, terminal velocity, coyote time, jump buffer, jump cut, air jump count and pitch limits.
-- **Input Provider** holds look sensitivity.
-
-The **Rocket Jump Tester** on the same object sets the test blast's range, radius, strength and fade.
-
-Unity discards changes made during Play mode when you stop, so copy any values you want to keep back in edit mode.
-
-### Compile without opening Unity
-
-```bash
-dotnet build Assembly-CSharp.csproj
-```
-
-The `.csproj` and `.sln` files are generated by Unity and are not committed. If they are missing or out of date, regenerate them in Unity under **Edit > Preferences > External Tools > Regenerate project files**.
-
-## How it works
-
-### Four layers
-
-```
-MovementController (MonoBehaviour)  drives everything, owns the CharacterController
-  └─ MovementMotor                  runs the active mode and switches between modes
-       └─ MovementMode              one ability, e.g. DefaultMode; holds several providers
-            └─ MovementProvider     one slice of the output; a state machine
-                 └─ MovementState   one phase of that slice, e.g. Grounded, Jumping, Falling
-```
-
-The sample's `DefaultMode` has five providers:
-
-| Provider | Owns | States |
-| --- | --- | --- |
-| `RotationProvider` | Character yaw and camera pitch | `RotatingState` |
-| `HorizontalMovementProvider` | Velocity X and Z | `IdleState`, `MovingState` |
-| `VerticalMovementProvider` | Velocity Y | `GroundedState`, `JumpingState`, `FallingState` |
-| `CarryProvider` | No axis: adds the velocity of whatever the character stands on | `CarriedState`, `ReleasedState` |
-| `PushProvider` | No axis: adds a push out of the way of moving colliders | `PushedState` |
-
-A mode combines its providers' outputs each physics step. It **adds** their velocities and **multiplies** their rotations together. Each provider therefore owns a part of the output that no other provider writes: an axis of velocity, or a rotation. If two providers write the same axis, the values are added together and the movement doubles without any error. `CarryProvider` and `PushProvider` are the deliberate exceptions: they own no axis, and add an offset from the world on top of the character's own movement.
-
-### State machines
-
-Modes and states follow the same contract, `IState` in `Assets/Src/Generics/`:
-
-| Method | Runs | Purpose |
-| --- | --- | --- |
-| `Switch()` | Every step, first | Returns the next state, or `null` to stay. Must have no side effects. |
-| `End()` | On leaving | Clean-up for the old state. |
-| `Start()` | On entering | Effects of entering, such as consuming an input press. |
-| `Process()` | Every step, last | The state's movement for this step. |
-
-A mode's `Switch()` decides when to hand over to another mode, so the motor itself stays generic.
-
-### Contexts
-
-States work with the world only through two contexts, reached from their provider:
-
-- **`IInputContext`** holds the player's input, written once per rendered frame by `InputService`.
-- **`IPhysicsContext`** is the movement context. It holds every tuning value, and any movement data that must outlive a single state, such as the coyote timer, the jump buffer, the heading and the simulated position.
-
-States are created once and reused on every visit, so they keep no fields of their own. Anything that changes per jump or per step goes on `IPhysicsContext`.
-
-### Rendering and simulation
-
-`MovementController` runs the simulation in `FixedUpdate` and draws in `Update`. Between physics steps it draws the character ahead of the last simulated pose by the time elapsed since that step. As a result, the transform shows the drawn pose rather than the simulated one between steps. **Read `PhysicsContext.Position` and `PhysicsContext.Rotation`, not the transform.**
-
-## Extending the framework
-
-New behaviour goes in `Assets/Src/Frameworks/MovementFramework/Examples/`. The core files at the root of `MovementFramework/` change only when an ability needs a new generic contract, such as a new property on `IPhysicsContext`.
-
-| To add… | Do this |
-| --- | --- |
-| A new ability (slide, dash, wallrun, crouch) | A new mode in `Examples/Modes/<Name>Mode/`, with its own providers under `Providers/`. Return it from the current mode's `Switch()` when its entry condition is met, and register it in `MovementController.CreateMovementModes()`. |
-| A new phase of existing locomotion | A new state in its provider's `States/` folder, created in that provider's `CreateStates()`. |
-| A tuning value | Three edits: declare it on `IPhysicsContext`, implement it with a default in `PhysicsContext`, and expose it on `PhysicsProvider`. Skipping the last one means the inspector silently has no effect. |
-| Movement data shared between states | A property on `IPhysicsContext`, reset in the owning state's `Start()` if it is per entry. |
-| A new input | A binding in `Examples/Inputs.inputactions`, read by `InputService` into a property on `IInputContext`. |
-| A camera effect (head bob, FOV kick) | Its own `MonoBehaviour` on the camera that reads the contexts in `LateUpdate()`. |
-| An external force (blast, launch pad, wind) | Call `ImpulseEvents.ApplyImpulse()` with the character's `GameObject`, a velocity and how long it takes to fade. It is the only way to push a character. `RocketJumpTester` is the example. |
-| A moving platform or obstacle | A kinematic `Rigidbody` whose pose is a function of time, drawn in `Update()` and set on both the body and the transform in `FixedUpdate()`, with an execution order ahead of `MovementController`'s -100. Copy `MovingPlatform`. |
-
-A minimal state looks like this:
-
-```csharp
-using Radknee.Generics;
-using UnityEngine;
-
-namespace Radknee.MovementFramework.Examples
-{
-    internal class ExampleState : MovementState
-    {
-        public ExampleState(MovementProvider movementProvider) : base(movementProvider)
-        {
-        }
-
-        public override IState Switch()
-        {
-            // Return another state to leave, or null to stay.
-            return null;
-        }
-
-        public override void Start() { }
-
-        public override void Process()
-        {
-            // Read input and settings through the contexts, and scale by the physics step.
-            Vector3 velocity = movementProvider.Velocity;
-            velocity.y += movementProvider.PhysicsContext.Gravity * Time.fixedDeltaTime;
-            movementProvider.Velocity = velocity;
-        }
-
-        public override void End() { }
-    }
-}
-```
-
-Rules that prevent the most common bugs:
-
-- **A state takes the base `MovementProvider`** and never casts it to a concrete provider type.
-- **A state reads the world only through its contexts and `Physics.*` queries.** It does not read `transform`, `Time.deltaTime` or the Input System.
-- **Button presses are latched.** `InputService` runs once per rendered frame and states run once per physics step, so a press that is only true for one frame can be missed. Set the press on the context and never clear it in the service. The state that acts on it clears it, in `Start()`. `JumpPressed` is the model to copy.
-- **Mouse delta is summed, not assigned.** The state that uses it zeroes it, as `RotatingState` does.
-- **Provider order matters for two pairs.** `RotationProvider` runs before `HorizontalMovementProvider`, because `MovingState` steers by the heading it writes. `CarryProvider` runs before `PushProvider`, which skips the ground `CarryProvider` records.
-- **To teleport**, write `PhysicsContext.Position`, set `transform.position` to the same value, and call `Physics.SyncTransforms()` once.
-
-## Project layout
-
-```
-Assets/Src/
-  Frameworks/MovementFramework/   Framework core: layers, contexts, output interfaces,
-                                  ImpulseEvents, PhysicsUtilities
-    Examples/                     Sample: MovementController, Modes/DefaultMode, input asset,
-                                  SampleScene and its test props
-  Services/                       ServiceManager, InputService, PhysicsService,
-                                  PhysicsProvider, InputProvider
-  Generics/                       IState, IStateMachine
-```
-
-Dependencies point one way. The sample uses the core, services and generics. Services use the core. The core uses only generics.
-
-The `CLAUDE.md` files in the repository root, `Assets/Src/Frameworks/MovementFramework/` and `Assets/Src/Services/` are the detailed design notes. They explain the reasoning behind each rule above, and are written for both people and AI coding assistants.
+To compile without opening Unity, run `dotnet build Assembly-CSharp.csproj`. The project files are generated by Unity and not committed. If they are missing or out of date, regenerate them under **Edit > Preferences > External Tools > Regenerate project files**.
 
 ## License
 
