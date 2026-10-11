@@ -5,9 +5,7 @@ using UnityEngine;
 namespace Radknee.MovementFramework
 {
     /// <summary>
-    /// This class serves as a base class for movement providers, which manage the movement states and behaviors of an entity. 
-    /// It implements the IStateMachine, IForceProvider, and IRotationProvider interfaces,
-    /// allowing it to handle state transitions, provide force and rotation information, and manage the current state of movement.
+    /// Runs one state machine and outputs its slice of the mode's velocity and rotation.
     /// </summary>
     public abstract class MovementProvider : IStateMachine, IForceProvider, IRotationProvider
     {

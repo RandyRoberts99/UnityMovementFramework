@@ -4,9 +4,8 @@ using UnityEngine;
 namespace Radknee.Services
 {
     /// <summary>
-    /// Scene component that exposes <see cref="InputContext"/> settings in the inspector, the way
-    /// <see cref="PhysicsProvider"/> does for the physics context. Raw input still comes only from
-    /// <see cref="InputService"/>; this component writes settings and nothing else.
+    /// Exposes <see cref="InputContext"/> settings in the inspector. Writes settings only; raw
+    /// input comes from <see cref="InputService"/>.
     /// </summary>
     public class InputProvider : MonoBehaviour
     {
@@ -17,9 +16,7 @@ namespace Radknee.Services
         [Range(0.01f, 1f)]
         public float lookSensitivity = 0.1f;
 
-        // LookInput, JumpPressed and the other raw inputs are deliberately absent. InputService
-        // writes them every frame and the movement states drain or clear them, so Update() below
-        // reasserting one would stamp over the player's input.
+        // No raw inputs: Update() reasserts every field each frame and would overwrite them.
 
         private void Start()
         {
@@ -38,7 +35,6 @@ namespace Radknee.Services
                 Debug.LogError("InputContext service not found. Please ensure it is registered.");
                 return;
             }
-            // Update the input context with the values from the inspector
             _inputContext.LookSensitivity = lookSensitivity;
         }
     }

@@ -11,21 +11,12 @@ namespace Radknee.MovementFramework.Examples
 
         public override void Start()
         {
-            // no-op. Releasing the stick is not a stop: the velocity carried in from MovingState is
-            // the character's inertia, and Process() bleeds it off over the following steps.
-            // Zeroing it here would be the instant stop the drag exists to remove.
+            // Velocity is not zeroed: it is the character's inertia, which Process() bleeds off.
         }
 
         public override void Process()
         {
-            // No input, so the target is a standstill and the character coasts down to it. Drag is
-            // a separate setting from acceleration so a slide into a stop can be longer or shorter
-            // than the run-up; scaling by fixedDeltaTime makes it a change in velocity per second
-            // rather than per physics step. In the air it is AirDrag instead, so a rocket jump is
-            // not braked by the ground's friction.
-            //
-            // A drag of zero is frictionless: the character keeps whatever velocity it had until
-            // the player steers again.
+            // Coast to a stop. AirDrag in the air, so ground friction does not brake a rocket jump.
             float drag = movementProvider.PhysicsContext.CharacterController.isGrounded
                 ? movementProvider.PhysicsContext.HorizontalDrag
                 : movementProvider.PhysicsContext.AirDrag;
@@ -38,7 +29,6 @@ namespace Radknee.MovementFramework.Examples
 
         public override void End()
         {
-            // no-op
         }
 
         public override IState Switch()

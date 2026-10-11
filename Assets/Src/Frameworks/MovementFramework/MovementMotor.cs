@@ -6,21 +6,18 @@ namespace Radknee.MovementFramework
     public class MovementMotor : IForceProvider, IRotationProvider
     {
         /// <summary>
-        /// One push from outside the movement layer: a velocity that fades to nothing over its
-        /// decay time, linearly or along a falloff curve. Kept apart from the mode's velocity and
-        /// added to it for every step while it lasts.
+        /// One external push: a velocity that fades to nothing over its decay time.
         /// </summary>
         private struct Impulse
         {
-            /// <summary>The velocity at full strength, the moment the impulse is applied.</summary>
+            /// <summary>The velocity at full strength.</summary>
             public Vector3 Velocity;
 
             /// <summary>Seconds from full strength to nothing. Zero lasts a single physics step.</summary>
             public float DecayTime;
 
             /// <summary>
-            /// Strength, as a fraction of Velocity, against progress through the decay time from 0
-            /// to 1. Null fades linearly.
+            /// Strength against progress through the decay time, 0 to 1. Null fades linearly.
             /// </summary>
             public AnimationCurve Falloff;
 
@@ -40,17 +37,14 @@ namespace Radknee.MovementFramework
         private List<MovementMode> _modes;
         private MovementMode _currentMode;
 
-        // Every impulse still fading, filled from ImpulseEvents. Each is its own instance, so
-        // impulses applied together decay on their own clocks rather than as one lump.
+        // Every impulse still fading, each on its own clock.
         private readonly List<Impulse> _impulses = new();
 
         /// <summary>
-        /// The current mode's velocity plus every impulse still fading: the velocity to move the
-        /// character by this step.
+        /// The current mode's velocity plus every impulse still fading.
         /// </summary>
         public Vector3 Velocity { get; private set; }
-        // Identity, not default: MovementController may draw a frame before the first physics
-        // step has produced a rotation, and a zeroed quaternion is not a rotation at all.
+        // Identity, not default: MovementController may draw before the first physics step.
         public Quaternion Rotation { get; private set; } = Quaternion.identity;
         public Quaternion CameraRotation { get; private set; } = Quaternion.identity;
 
@@ -88,10 +82,8 @@ namespace Radknee.MovementFramework
         }
 
         /// <summary>
-        /// Keeps an impulse. MovementController registers this as its character's receiver with
-        /// ImpulseEvents, so every impulse that reaches it is meant for this motor. External
-        /// sources call ImpulseEvents.ApplyImpulse(), never this; see that for what the arguments
-        /// mean.
+        /// The receiver MovementController registers with ImpulseEvents. Sources call
+        /// ImpulseEvents.ApplyImpulse(), never this.
         /// </summary>
         public void AddImpulse(Vector3 velocity, float decayTime, AnimationCurve falloff)
         {
@@ -99,16 +91,14 @@ namespace Radknee.MovementFramework
             {
                 Velocity = velocity,
                 DecayTime = Mathf.Max(decayTime, 0f),
-                // An inspector field holds an empty curve rather than null, and an empty curve
-                // evaluates to zero everywhere, which would cancel the push outright.
+                // Inspector curves are empty rather than null, and an empty curve cancels the push.
                 Falloff = falloff != null && falloff.length > 0 ? falloff : null,
                 Age = 0f
             });
         }
 
         /// <summary>
-        /// The combined velocity of every impulse still fading, as it stands this step. Ages each
-        /// one by the step it is spent on and removes any past its decay time.
+        /// Sums every impulse for this step, then ages them and removes the expired ones.
         /// </summary>
         private Vector3 TakeImpulseVelocity()
         {

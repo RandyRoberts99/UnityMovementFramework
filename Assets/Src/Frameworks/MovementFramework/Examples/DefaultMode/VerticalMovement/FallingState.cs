@@ -21,8 +21,7 @@ namespace Radknee.MovementFramework.Examples
 
             Vector3 velocity = movementProvider.Velocity;
             velocity.y += movementProvider.PhysicsContext.Gravity * Time.fixedDeltaTime;
-            // Capping the fall keeps a single physics step from moving the controller far enough
-            // to pass straight through a floor.
+            // Capped so a single step cannot pass through a floor.
             velocity.y = Mathf.Max(velocity.y, movementProvider.PhysicsContext.TerminalVelocity);
             movementProvider.Velocity = velocity;
         }
@@ -38,9 +37,8 @@ namespace Radknee.MovementFramework.Examples
                 return movementProvider.RequestState<GroundedState>();
             }
 
-            // Coyote time: a jump pressed just after walking off a ledge still counts. The latch is
-            // read alongside the buffer because UpdateJumpBuffer() runs in Process(), which is
-            // after Switch(); testing the buffer alone would delay every jump by a physics step.
+            // Coyote time. The latch is tested with the buffer because the buffer is only filled
+            // in Process(), after Switch(); the buffer alone would delay every jump by a step.
             if (movementProvider.PhysicsContext.CoyoteTimeRemaining > 0f
                 && (movementProvider.InputContext.JumpPressed
                     || movementProvider.PhysicsContext.JumpBufferRemaining > 0f))
@@ -48,11 +46,7 @@ namespace Radknee.MovementFramework.Examples
                 return movementProvider.RequestState<JumpingState>();
             }
 
-            // Air jump. The ground is gone and the grace period with it, so this one comes out of
-            // AirJumpsRemaining, which JumpingState.Start() debits. Tested after the coyote branch
-            // so a jump the ground still owes the player is never charged for. The latch is read
-            // alongside the buffer for the same reason as above, and the buffer branch is what
-            // catches a press made during the rise that arrived here still pending.
+            // Air jump, tested after coyote time so a jump the ground still owes is never charged.
             if (movementProvider.PhysicsContext.AirJumpsRemaining > 0
                 && (movementProvider.InputContext.JumpPressed
                     || movementProvider.PhysicsContext.JumpBufferRemaining > 0f))
@@ -64,14 +58,8 @@ namespace Radknee.MovementFramework.Examples
         }
 
         /// <summary>
-        /// Takes the latched press off the input context and turns it into a pending jump that ages
-        /// out, so a press made on the way down still fires if the ground arrives within the buffer
-        /// window. Input is polled in Update but states run in FixedUpdate, so the press arrives as
-        /// a latch to be cleared here rather than an edge that could be missed.
-        ///
-        /// Falling is the state a buffered press has to survive, so the ageing lives here rather
-        /// than on the provider. JumpingState keeps its own copy for the rise; GroundedState needs
-        /// none, since it spends a press immediately.
+        /// Turns the latched press into a pending jump that ages out, so a press just before
+        /// landing still fires. Copied in JumpingState.UpdateJumpBuffer(); keep the two in step.
         /// </summary>
         private void UpdateJumpBuffer()
         {

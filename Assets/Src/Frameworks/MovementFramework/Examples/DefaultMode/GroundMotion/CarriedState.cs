@@ -4,9 +4,7 @@ using UnityEngine;
 namespace Radknee.MovementFramework.Examples
 {
     /// <summary>
-    /// Standing on something. The provider's velocity is the ground's own velocity at the point the
-    /// character stands on, so the character moves with the ground, and a descending platform
-    /// stays underfoot instead of dropping away and flickering isGrounded.
+    /// Grounded: outputs the ground's velocity where the character stands, so it moves with it.
     /// </summary>
     internal class CarriedState : MovementState
     {
@@ -24,13 +22,8 @@ namespace Radknee.MovementFramework.Examples
             Transform ground = PhysicsUtilities.FindGround(
                 physicsContext.CharacterController, physicsContext.Position, physicsContext.Rotation);
 
-            // The ground's velocity is measured, not asked for, from where its frame was at the
-            // last step and where it is now. Rotation comes in with translation, so a turning
-            // platform carries the character round its axis, and the ground needs no component of
-            // its own: anything whose transform moves carries the character.
-            //
-            // The first step on new ground has no earlier frame to compare against, so it carries
-            // nothing.
+            // Measured from the ground's frame last step and now, so any moving transform carries
+            // the character. The first step on new ground has nothing to compare and carries nothing.
             Vector3 velocity = Vector3.zero;
             if (ground != null && ground == physicsContext.GroundTransform)
             {
@@ -49,7 +42,6 @@ namespace Radknee.MovementFramework.Examples
 
         public override void Start()
         {
-            // no-op, Process() measures the ground on the same step
         }
 
         public override IState Switch()

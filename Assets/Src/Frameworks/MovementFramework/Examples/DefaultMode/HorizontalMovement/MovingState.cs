@@ -11,30 +11,19 @@ namespace Radknee.MovementFramework.Examples
 
         public override void Start()
         {
-            // no-op. The velocity carried in from IdleState is the character's inertia, so it must
-            // survive the transition rather than be reset here.
+            // Velocity is not reset: it is the character's inertia, carried in from IdleState.
         }
 
         public override void Process()
         {
-            // Input arrives in the character's own frame: y is forward, x is strafe. Turning it by
-            // the current heading is what makes movement relative to where the player is looking.
-            //
-            // The heading is read from the context rather than from the transform, because the
-            // transform is only rotated by MovementController after the whole motor has run, so it
-            // still holds the previous step's heading at this point. RotationProvider is registered
-            // before this one precisely so the value here is the one from this step.
+            // Input is in the character's frame: y is forward, x is strafe.
             Vector3 localDirection = new(movementProvider.InputContext.MovementInput.x, 0f, movementProvider.InputContext.MovementInput.y);
 
-            // Yaw only, never the camera's pitch: pitching the movement vector would walk the
-            // character into the ground or the air whenever they looked up or down.
+            // Yaw only, from the context: the transform still holds last step's heading, and pitch
+            // would walk the character into the ground or the air.
             Quaternion heading = movementProvider.PhysicsContext.Rotation;
 
-            // Sprint swaps the target speed and nothing else, so it is a modifier here rather than
-            // a state or a mode. The rest of the step closes on whichever target it gets, on the
-            // ground and in the air alike: letting go of sprint eases back down to MovementSpeed at
-            // HorizontalAcceleration instead of snapping, and in the air it only raises how far
-            // steering may add speed.
+            // Sprint only swaps the target speed, so it is a modifier rather than a mode.
             float speed = movementProvider.InputContext.SprintHeld
                 ? movementProvider.PhysicsContext.SprintSpeed
                 : movementProvider.PhysicsContext.MovementSpeed;
@@ -43,9 +32,8 @@ namespace Radknee.MovementFramework.Examples
 
             if (movementProvider.PhysicsContext.CharacterController.isGrounded == false)
             {
-                // In the air the input may only add speed along the direction it asks for, never
-                // take it away, so momentum beyond the target speed, such as a rocket jump's,
-                // survives holding a direction instead of being steered back down to it.
+                // Air control only adds speed, so momentum beyond the target, such as a rocket
+                // jump's, survives.
                 movementProvider.Velocity = PhysicsUtilities.AirAccelerate(
                     movementProvider.Velocity,
                     targetVelocity,
@@ -55,15 +43,7 @@ namespace Radknee.MovementFramework.Examples
                 return;
             }
 
-            // Inertia: the input names a velocity to reach, not one to have. The provider's own
-            // Velocity is what carries between physics steps and between this state and IdleState,
-            // so it is read back rather than overwritten, and the step moves it toward the target
-            // at a fixed rate instead of snapping.
-            //
-            // MoveTowards handles turning as well as speeding up, since a change of direction is
-            // just a target the current velocity is far from; the character arcs through the turn
-            // at the same rate it accelerates. Scaling by fixedDeltaTime makes
-            // HorizontalAcceleration a change in velocity per second rather than per physics step.
+            // Accelerate toward the target rather than snapping to it; this governs turning too.
             movementProvider.Velocity = Vector3.MoveTowards(
                 movementProvider.Velocity,
                 targetVelocity,
@@ -72,7 +52,6 @@ namespace Radknee.MovementFramework.Examples
 
         public override void End()
         {
-            // no-op
         }
 
         public override IState Switch()

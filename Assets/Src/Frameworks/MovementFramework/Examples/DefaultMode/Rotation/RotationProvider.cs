@@ -4,13 +4,8 @@ using System.Collections.Generic;
 namespace Radknee.MovementFramework.Examples
 {
     /// <summary>
-    /// Owns where the character is facing: yaw on the body, pitch on the camera. It produces no
-    /// velocity, so it leaves <see cref="MovementProvider.Velocity"/> at zero and contributes
-    /// nothing to the sum DefaultMode builds.
-    ///
-    /// This provider must be registered before HorizontalMovementProvider. MovingState steers by
-    /// PhysicsContext.Rotation, which RotatingState writes, so running it second would leave
-    /// movement a physics step behind the camera on every turn.
+    /// Yaw on the body and pitch on the camera; no velocity. Must run before
+    /// HorizontalMovementProvider, which steers by the Rotation written here.
     /// </summary>
     public class RotationProvider : MovementProvider
     {

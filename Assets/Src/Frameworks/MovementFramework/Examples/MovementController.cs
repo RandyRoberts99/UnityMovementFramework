@@ -17,11 +17,6 @@ namespace Radknee.Gameplay
 
         private IInputContext _inputContext;
         private IPhysicsContext _physicsContext;
-
-        /**
-         * The movement motor of the character.
-         * This determines how the character moves and rotates.
-         */
         private MovementMotor _movementMotor;
 
         void Awake()
@@ -39,8 +34,7 @@ namespace Radknee.Gameplay
 
         void OnEnable()
         {
-            // Impulses aimed at this character go to its motor. Not while disabled, or they would
-            // pile up and all land at once on re-enabling.
+            // Only while enabled, so impulses do not pile up on a disabled character.
             ImpulseEvents.Register(gameObject, _movementMotor.AddImpulse);
         }
 
@@ -82,39 +76,25 @@ namespace Radknee.Gameplay
 
             _movementMotor.Process();
 
-            // The transform still holds the pose the last frame was drawn at. Placing the simulated
-            // pose back first makes the move start from where the character is, not where it was
-            // last drawn.
+            // Replace the drawn pose with the simulated one so the move starts from it.
             Rotate(_physicsContext.Position, _movementMotor.Rotation, _movementMotor.CameraRotation);
             Move(_movementMotor.Velocity);
         }
 
         /// <summary>
-        /// Draws the character between physics steps by carrying the latest step's result forward
-        /// to the moment this frame is drawn. Nothing about earlier steps is kept: the position,
-        /// the velocity the move achieved and the summed rotations of the latest step are all it
-        /// needs.
+        /// Draws the character between physics steps by carrying the latest step forward.
         /// </summary>
         private void Extrapolate()
         {
-            // Time since the last physics step: Time.fixedTime is the time of that step, so this
-            // climbs from 0 just after a step towards fixedDeltaTime as the next one comes due.
+            // Time since the last physics step.
             float elapsed = Mathf.Clamp(Time.time - Time.fixedTime, 0f, Time.fixedDeltaTime);
 
-            // The providers' summed velocity as the last move actually carried it out, not as they
-            // asked for it. CharacterController.velocity is the distance that Move() covered over
-            // the step, so whatever a collision cancelled is already gone from it. The raw sum
-            // points into anything blocking the move: while standing it holds GroundingForce, and
-            // drawing by it sank the camera up to 4 cm into the floor and snapped it back on every
-            // step, a vertical sawtooth that made looking up and down judder.
+            // The velocity the move achieved, not the motor's raw sum, which points into anything
+            // blocking the move (GroundingForce into the floor) and makes the camera judder.
             Vector3 position = _physicsContext.Position + characterController.velocity * elapsed;
 
-            // Look input is a displacement, not a rate, so rotation is carried forward by the input
-            // polled since the last step rather than by time. It is read without draining it: the
-            // next step spends it, turning the rotation exactly as here, so the view shows the
-            // turn this frame and nothing jumps when the step lands.
-            //
-            // Deliberately a copy of RotatingState's turn, including PitchOf(). Keep them in step.
+            // Turned by the undrained look input, exactly as the next step will turn it. A copy of
+            // RotatingState's turn, PitchOf() included; keep the two in step.
             Vector2 pendingLook = _inputContext.LookInput * _inputContext.LookSensitivity;
 
             Quaternion characterRotation = _movementMotor.Rotation * Quaternion.Euler(0f, pendingLook.x, 0f);
@@ -140,15 +120,12 @@ namespace Radknee.Gameplay
         {
             characterController.Move(target * Time.fixedDeltaTime);
 
-            // Only here is it known where the move actually stopped, which a collision may have
-            // cut short of the velocity, so report it back for the next step to start from.
+            // Where the move actually stopped, for the next step to start from.
             _physicsContext.Position = transform.position;
         }
 
         /// <summary>
-        /// The body takes the character rotation and the camera takes the camera rotation. The
-        /// split is the provider's to make, not this method's: RotationProvider yields yaw in one
-        /// and pitch in the other, so nothing is decomposed here.
+        /// Yaw on the body, pitch on the camera. RotationProvider has already split them.
         /// </summary>
         private void Rotate(Vector3 position, Quaternion characterRotation, Quaternion cameraRotation)
         {
@@ -156,16 +133,14 @@ namespace Radknee.Gameplay
 
             if (characterCamera != null)
             {
-                // Local, so the camera's pitch composes with the body's yaw rather than replacing
-                // it. The camera has to be a child of the character for this to hold.
+                // Local, so pitch composes with the body's yaw. The camera must be its child.
                 characterCamera.transform.localRotation = cameraRotation;
             }
         }
 
         /// <summary>
-        /// Creates the movement modes for the character. This is where you can add new movement modes or modify existing ones.
+        /// Register new movement modes here. The first is the starting mode.
         /// </summary>
-        /// <returns></returns>
         private List<MovementMode> CreateMovementModes()
         {
             DefaultMode defaultMode = new(_inputContext, _physicsContext);

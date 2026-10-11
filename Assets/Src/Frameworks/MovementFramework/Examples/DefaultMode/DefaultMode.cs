@@ -16,7 +16,6 @@ namespace Radknee.MovementFramework.Examples
 
         public override void Start()
         {
-            // no-op
         }
 
         public override void Process()
@@ -31,9 +30,7 @@ namespace Radknee.MovementFramework.Examples
 
                 Velocity += provider.Velocity;
 
-                // Rotations compose by multiplication, not addition, but the rule is the same one
-                // the velocity sum follows: identity is the neutral element, so a provider that
-                // produces no rotation contributes nothing and only one provider may own an axis.
+                // Rotations compose by multiplication; a provider with no rotation adds identity.
                 Rotation *= provider.Rotation;
                 CameraRotation *= provider.CameraRotation;
             }
@@ -41,7 +38,6 @@ namespace Radknee.MovementFramework.Examples
 
         public override void End()
         {
-            // no-op
         }
 
         public override IState Switch()
@@ -51,11 +47,9 @@ namespace Radknee.MovementFramework.Examples
 
         public override List<MovementProvider> CreateMovementProviders()
         {
-            // Order matters here, which it does not for the velocity sum. RotationProvider writes
-            // PhysicsContext.Rotation and HorizontalMovementProvider reads it to steer, so the
-            // rotation provider has to run first or movement lags the camera by a physics step.
-            // PushProvider has to follow GroundMotionProvider, which records this step's ground for
-            // it to leave alone; otherwise a rising platform both carries and pushes the character.
+            // Order matters for two pairs:
+            // - RotationProvider before HorizontalMovementProvider, which steers by its Rotation.
+            // - GroundMotionProvider before PushProvider, which skips the ground it records.
             List<MovementProvider> movementProviders = new()
             {
                 new RotationProvider(_inputContext, _physicsContext),
@@ -68,10 +62,7 @@ namespace Radknee.MovementFramework.Examples
             return movementProviders;
         }
 
-        /// <summary>
-        /// TODO: Implement other movement modes and their conditions for switching.
-        /// </summary>
-
+        // TODO: Implement other movement modes and their conditions for switching.
         private bool CanWallrun()
         {
             return false;

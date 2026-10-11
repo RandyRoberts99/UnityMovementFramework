@@ -58,10 +58,7 @@ public class PhysicsProvider : MonoBehaviour
     [Range(0f, 89.9f)]
     public float maxPitchAngle = 89f;
 
-    // Rotation and CameraRotation are deliberately absent. They are runtime state owned by
-    // RotatingState, and Update() below reasserts everything it knows about on every frame, so a
-    // field here would stamp over the player's look direction each frame and freeze the camera.
-    // Position is runtime state for the same reason.
+    // No runtime state: Update() reasserts every field each frame and would overwrite it.
 
     private void Start()
     {
@@ -80,7 +77,6 @@ public class PhysicsProvider : MonoBehaviour
             Debug.LogError("PhysicsContext service not found. Please ensure it is registered.");
             return;
         }
-        // Update the physics context with the values from the inspector
         _physicsContext.MovementSpeed = movementSpeed;
         _physicsContext.SprintSpeed = sprintSpeed;
         _physicsContext.HorizontalAcceleration = horizontalAcceleration;

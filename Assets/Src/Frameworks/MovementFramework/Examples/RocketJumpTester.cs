@@ -5,13 +5,8 @@ using UnityEngine;
 namespace Radknee.MovementFramework.Examples
 {
     /// <summary>
-    /// A stand-in rocket launcher for trying out external forces in the scene, a test prop like
-    /// MovingPlatform rather than a weapon. On Fire it sets off a blast where the camera is
-    /// pointing and pushes every character in reach away from it, weaker with distance.
-    ///
-    /// The blast does its own physics and hands each character only the velocity, how long it
-    /// takes to fade and how it fades, through ImpulseEvents.ApplyImpulse(). That is the pattern
-    /// for any source of force: the movement layer knows nothing of blasts, pads or wind.
+    /// Test prop for external forces. On Fire, a blast where the camera points pushes nearby
+    /// characters through ImpulseEvents.ApplyImpulse(), the pattern for any source of force.
     /// </summary>
     public class RocketJumpTester : MonoBehaviour
     {
@@ -44,8 +39,7 @@ namespace Radknee.MovementFramework.Examples
             }
         }
 
-        // Runs after MovementController's Update() (-100), which polls input, so a press made this
-        // frame is already latched.
+        // Runs after MovementController (-100) polls input, so this frame's press is latched.
         void Update()
         {
             if (inputContext == null || aimCamera == null || inputContext.FirePressed == false)
@@ -55,8 +49,7 @@ namespace Radknee.MovementFramework.Examples
 
             inputContext.FirePressed = false;
 
-            // The ray starts inside the character's own capsule, which a raycast never reports, so
-            // the character cannot shoot itself in the face.
+            // Starts inside the character's capsule, which a raycast does not report.
             Ray ray = new(aimCamera.transform.position, aimCamera.transform.forward);
             if (Physics.Raycast(ray, out RaycastHit hit, range, hitLayers, QueryTriggerInteraction.Ignore) == false)
             {
@@ -72,14 +65,13 @@ namespace Radknee.MovementFramework.Examples
 
             foreach (Collider collider in Physics.OverlapSphere(centre, blastRadius, Physics.AllLayers, QueryTriggerInteraction.Ignore))
             {
-                // Only characters can be pushed. An impulse aimed at anything else would go unheard.
+                // Only characters can be pushed.
                 if (collider.TryGetComponent(out MovementController movementController) == false)
                 {
                     continue;
                 }
 
-                // Pushed from the blast towards the middle of the character, so a blast at the feet
-                // throws it up and one at a wall beside it throws it sideways.
+                // Away from the blast, through the character's centre.
                 Vector3 away = collider.bounds.center - centre;
                 float distance = away.magnitude;
                 Vector3 direction = distance > 0f ? away / distance : Vector3.up;

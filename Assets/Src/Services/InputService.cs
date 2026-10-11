@@ -43,9 +43,8 @@ namespace Radknee.Services
         }
 
         /// <summary>
-        /// Takes the cursor lock back on a left click. The editor releases it on Escape or when
-        /// focus leaves the game view, and until the click the cursor stays free so the editor can
-        /// be used. Returns whether this frame's click was spent taking the lock.
+        /// Retakes the cursor lock on a left click after the editor releases it (Escape or lost
+        /// focus). Returns whether this frame's click was spent on it.
         /// </summary>
         bool RelockCursor()
         {
@@ -60,8 +59,6 @@ namespace Radknee.Services
             return true;
         }
 
-        // Locked to the centre of the game view and hidden, so mouse look has no screen edge to
-        // stop at.
         void LockCursor()
         {
             Cursor.lockState = CursorLockMode.Locked;
@@ -71,20 +68,13 @@ namespace Radknee.Services
         void SetInputContext(bool relockedCursor)
         {
             // Settings such as LookSensitivity are not written here; InputProvider owns them.
-
-            // Refresh current inputs here
             InputContext.MovementInput = _moveAction.ReadValue<Vector2>();
 
-            // Accumulated rather than assigned, for the same reason the jump press is latched:
-            // this runs in Update, which does not line up with FixedUpdate, so assigning would
-            // throw away the delta of any frame that had no physics step. Mouse delta is a
-            // per-frame displacement, so the deltas of the skipped frames have to be summed in
-            // for the motion to survive. The movement layer zeroes it once it has been applied.
+            // Summed, not assigned, so frames without a physics step keep their delta.
             InputContext.LookInput += _lookAction.ReadValue<Vector2>();
 
-            // Latched rather than assigned. This runs in Update while the movement code reads it in
-            // FixedUpdate, which does not run on every frame, so overwriting the flag here would
-            // drop presses. The movement layer clears it once it has taken the press.
+            // Latched, not assigned, so frames without a physics step keep the press. The
+            // consuming state clears it.
             if (_jumpAction.WasPressedThisFrame())
             {
                 InputContext.JumpPressed = true;
@@ -96,8 +86,7 @@ namespace Radknee.Services
             InputContext.SprintHeld = _sprintAction.IsPressed();
             InputContext.CrouchPressed = _crouchAction.triggered;
 
-            // Latched like the jump press, and cleared by whoever fires. A click that only took the
-            // cursor lock back is not a shot.
+            // Latched like jump. A click that only retook the cursor lock is not a shot.
             if (_fireAction.WasPressedThisFrame() && relockedCursor == false)
             {
                 InputContext.FirePressed = true;

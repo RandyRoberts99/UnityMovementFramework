@@ -8,8 +8,7 @@ namespace Radknee.MovementFramework
         {
             CharacterController = characterController;
 
-            // Starts where the character was placed in the scene, so the first frames draw it there
-            // rather than at the origin.
+            // Start where the character was placed, not at the origin.
             Position = characterController.transform.position;
         }
         public CharacterController CharacterController { get; set; }
@@ -29,8 +28,7 @@ namespace Radknee.MovementFramework
         public float CoyoteTimeRemaining { get; set; }
         public float MinPitchAngle { get; set; } = -89f;
         public float MaxPitchAngle { get; set; } = 89f;
-        // Identity, not default: a zeroed quaternion is not a rotation, and anything turned by it
-        // collapses to zero with it.
+        // Identity, not default: a zeroed quaternion collapses anything it multiplies.
         public Quaternion Rotation { get; set; } = Quaternion.identity;
         public Quaternion CameraRotation { get; set; } = Quaternion.identity;
         public Vector3 Position { get; set; }

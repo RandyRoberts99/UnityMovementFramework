@@ -2,33 +2,23 @@ using UnityEngine;
 
 namespace Radknee.MovementFramework
 {
-    /// <summary>
-    /// Represents a context for input handling in the movement framework.
-    /// </summary>
     public interface IInputContext
     {
         Vector2 MovementInput { get; set; }
 
         /// <summary>
-        /// Look delta accumulated since the movement layer last drained it, in raw device units.
-        /// Like <see cref="JumpPressed"/> this accumulates rather than being assigned, because
-        /// input is polled in Update while movement runs in FixedUpdate: on a frame with no
-        /// physics step an assignment would overwrite an unread delta and quietly lose mouse
-        /// movement, making sensitivity depend on frame rate. RotatingState drains it and is
-        /// responsible for zeroing it.
+        /// Look delta in raw device units, summed until RotatingState drains it so frames without
+        /// a physics step lose nothing.
         /// </summary>
         Vector2 LookInput { get; set; }
 
         /// <summary>
-        /// Multiplier applied to <see cref="LookInput"/> when it is turned into degrees.
+        /// Degrees per unit of <see cref="LookInput"/>.
         /// </summary>
         float LookSensitivity { get; set; }
 
         /// <summary>
-        /// Set true when the jump button goes down and left true until the movement layer clears
-        /// it. It is a latch rather than a single-poll edge because input is polled in Update while
-        /// movement runs in FixedUpdate, so an edge would be missed on frames without a physics
-        /// step. Whoever acts on the press is responsible for setting it back to false.
+        /// Latched true on press, so FixedUpdate cannot miss it. Cleared by whoever acts on it.
         /// </summary>
         bool JumpPressed { get; set; }
 
@@ -43,16 +33,14 @@ namespace Radknee.MovementFramework
         bool JumpReleased { get; set; }
 
         /// <summary>
-        /// True while the sprint button is held. A level, so sampling it in FixedUpdate is merely
-        /// sampling it late and needs no latch.
+        /// True while the sprint button is held. A level, so it needs no latch.
         /// </summary>
         bool SprintHeld { get; set; }
 
         bool CrouchPressed { get; set; }
 
         /// <summary>
-        /// Set true when the fire button goes down and left true until whoever acts on it clears
-        /// it, latched for the same reason as <see cref="JumpPressed"/>.
+        /// Latched like <see cref="JumpPressed"/>. Cleared by whoever fires.
         /// </summary>
         bool FirePressed { get; set; }
     }

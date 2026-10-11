@@ -2,9 +2,8 @@ using UnityEngine;
 
 namespace Radknee.MovementFramework.Examples
 {
-    // Runs ahead of MovementController (-100), so each physics step places the platform before the
-    // character measures it and moves against it. CubeRotator follows the same pattern for
-    // rotation; keep the two in step. The framework CLAUDE.md, under Ground motion, says why.
+    // Runs before MovementController (-100) so the character measures this step's pose. Keep
+    // in step with CubeRotator; the framework CLAUDE.md, under Ground motion, says why.
     [DefaultExecutionOrder(-200)]
     public class MovingPlatform : MonoBehaviour
     {
@@ -16,8 +15,7 @@ namespace Radknee.MovementFramework.Examples
         [Header("Circle")]
         [SerializeField] bool moveInCircle;
         [SerializeField] float circleRadius = 3f;
-        // The two directions spanning the plane of the circle. Right and up give a vertical
-        // circle, like a Ferris wheel car: the platform stays level while it travels.
+        // The plane of the circle. Right and up give a vertical, Ferris-wheel circle.
         [SerializeField] Vector3 circleRight = Vector3.right;
         [SerializeField] Vector3 circleUp = Vector3.up;
 
@@ -30,9 +28,7 @@ namespace Radknee.MovementFramework.Examples
             platformTransform = GetComponent<Transform>();
             startPosition = platformTransform.position;
 
-            // A kinematic body lets FixedUpdate() move the collider in the physics scene at once.
-            // Moving the transform alone leaves the collider where the last step put it until the
-            // next simulation, a step behind the ground the character has just been carried with.
+            // Kinematic, so FixedUpdate() moves the collider at once rather than a step late.
             if (TryGetComponent(out platformBody) == false)
             {
                 platformBody = gameObject.AddComponent<Rigidbody>();
@@ -43,23 +39,20 @@ namespace Radknee.MovementFramework.Examples
 
         void Update()
         {
-            // Drawn where the platform is at this frame's time, so it moves at the frame rate
-            // instead of stepping at the physics rate, and stays in step with the character, which
-            // MovementController draws by extrapolating to the same moment.
+            // Drawn at this frame's time, matching the character's extrapolated pose.
             platformTransform.position = PositionAt(Time.time);
         }
 
         void FixedUpdate()
         {
-            // The step's pose replaces the drawn one: on the body for the character's move, and on
-            // the transform for CarriedState to measure.
+            // Restore the step's pose: the body for Move() to collide with, the transform for
+            // CarriedState to measure.
             Vector3 position = PositionAt(Time.fixedTime);
             platformBody.position = position;
             platformTransform.position = position;
         }
 
-        // A function of time alone rather than accumulated, so it never drifts, and drawing it at
-        // any moment between steps is exact.
+        // A pure function of time, so it never drifts and can be drawn at any moment.
         Vector3 PositionAt(float time)
         {
             return moveInCircle ? CirclePosition(time) : BackAndForthPosition(time);
@@ -84,9 +77,8 @@ namespace Radknee.MovementFramework.Examples
                 return startPosition;
             }
 
-            // The platform starts at the bottom of the circle, where it was placed, so it does not
-            // jump away from anything set on it in the scene. The centre is one radius along
-            // circleUp from there.
+            // Starts at the bottom of the circle, where it was placed; the centre is one radius
+            // along circleUp.
             float angle = time * speed / circleRadius;
             Vector3 fromStart = circleRight.normalized * Mathf.Sin(angle)
                 + circleUp.normalized * (1f - Mathf.Cos(angle));
