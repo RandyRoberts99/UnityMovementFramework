@@ -29,19 +29,20 @@ namespace Radknee.Gameplay
             CreateServices();
 
             List<MovementMode> movementModes = CreateMovementModes();
-            _movementMotor = new MovementMotor(movementModes);
+            Transform cameraTransform = characterCamera != null ? characterCamera.transform : null;
+            _movementMotor = new MovementMotor(_inputContext, _physicsContext, movementModes, cameraTransform);
         }
 
         void OnEnable()
         {
-            // Only while enabled, so impulses do not pile up on a disabled character.
-            ImpulseEvents.Register(gameObject, _movementMotor.AddImpulse);
+            // With the component, so a disabled character is neither moved nor pushed, and
+            // impulses do not pile up while it is off.
+            _movementMotor.Enable();
         }
 
         void OnDisable()
         {
-            // The table in ImpulseEvents is static, and would otherwise keep the motor alive.
-            ImpulseEvents.Unregister(gameObject);
+            _movementMotor.Disable();
         }
 
         private void CreateServices()
@@ -63,7 +64,7 @@ namespace Radknee.Gameplay
 
             ServiceManager.Process();
 
-            Extrapolate();
+            _movementMotor.Extrapolate();
         }
 
         void FixedUpdate()
@@ -75,67 +76,6 @@ namespace Radknee.Gameplay
             }
 
             _movementMotor.Process();
-
-            // Replace the drawn pose with the simulated one so the move starts from it.
-            Rotate(_physicsContext.Position, _movementMotor.Rotation, _movementMotor.CameraRotation);
-            Move(_movementMotor.Velocity);
-        }
-
-        /// <summary>
-        /// Draws the character between physics steps by carrying the latest step forward.
-        /// </summary>
-        private void Extrapolate()
-        {
-            // Time since the last physics step.
-            float elapsed = Mathf.Clamp(Time.time - Time.fixedTime, 0f, Time.fixedDeltaTime);
-
-            // The velocity the move achieved, not the motor's raw sum, which points into anything
-            // blocking the move (GroundingForce into the floor) and makes the camera judder.
-            Vector3 position = _physicsContext.Position + characterController.velocity * elapsed;
-
-            // Turned by the undrained look input, exactly as the next step will turn it. A copy of
-            // RotatingState's turn, PitchOf() included; keep the two in step.
-            Vector2 pendingLook = _inputContext.LookInput * _inputContext.LookSensitivity;
-
-            Quaternion characterRotation = _movementMotor.Rotation * Quaternion.Euler(0f, pendingLook.x, 0f);
-
-            float pitch = Mathf.Clamp(
-                PitchOf(_movementMotor.CameraRotation) - pendingLook.y,
-                _physicsContext.MinPitchAngle,
-                _physicsContext.MaxPitchAngle);
-            Quaternion cameraRotation = Quaternion.Euler(pitch, 0f, 0f);
-
-            Rotate(position, characterRotation, cameraRotation);
-        }
-
-        /// <summary>
-        /// The pitch, in degrees, of a rotation about X alone. See RotatingState.PitchOf().
-        /// </summary>
-        private static float PitchOf(Quaternion cameraRotation)
-        {
-            return 2f * Mathf.Atan(cameraRotation.x / cameraRotation.w) * Mathf.Rad2Deg;
-        }
-
-        private void Move(Vector3 target)
-        {
-            characterController.Move(target * Time.fixedDeltaTime);
-
-            // Where the move actually stopped, for the next step to start from.
-            _physicsContext.Position = transform.position;
-        }
-
-        /// <summary>
-        /// Yaw on the body, pitch on the camera. RotationProvider has already split them.
-        /// </summary>
-        private void Rotate(Vector3 position, Quaternion characterRotation, Quaternion cameraRotation)
-        {
-            transform.SetPositionAndRotation(position, characterRotation);
-
-            if (characterCamera != null)
-            {
-                // Local, so pitch composes with the body's yaw. The camera must be its child.
-                characterCamera.transform.localRotation = cameraRotation;
-            }
         }
 
         /// <summary>

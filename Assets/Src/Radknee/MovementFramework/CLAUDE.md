@@ -20,7 +20,7 @@ Pick the layer first, by what the new behaviour does:
 | Needs memory across steps, entries or states (timers, crouch height) | Runtime property on `IPhysicsContext`, reset in `Start()` if per-entry | — |
 | Checks or spends a resource (stamina, dash charges) | Reads and spends through `IPlayerContext`; never regenerates it | Planned: see `Assets/Src/Services/CLAUDE.md` |
 | Needs to know about the world (a wall, a ledge) | A `Physics.*` query, or a `PhysicsUtilities` function if it is complex, in the state or mode whose `Switch()`/`Process()` makes the decision | — |
-| Changes how the character's pose is drawn between steps | `MovementController.Extrapolate()`, from motor outputs and contexts only | — |
+| Changes how the character's pose is drawn between steps | `MovementMotor.Extrapolate()`, from motor outputs and contexts only | — |
 | Is a camera effect driven by movement (head bob, FOV kick) | Its own `MonoBehaviour` in `Examples/` | See below |
 
 A distinct ability is a mode even when it touches one slice, which is why `DefaultMode` carries `CanSlide()` beside `CanWallrun()` and `CanClimb()`. States are for the phases of a mode's own locomotion (idle and moving; grounded, jumping and falling), not for abilities.
@@ -29,7 +29,7 @@ A distinct ability is a mode even when it touches one slice, which is why `Defau
 
 **World queries** place the capsule at `PhysicsContext.Position` and `Rotation`, never at the transform, which still holds the drawn pose while the motor runs. Its radius, height and centre come from the `CharacterController` on `PhysicsContext`, and `PhysicsUtilities.CapsuleSegment()` combines the two. Queries run where the decision is made: a mode's `Switch()` for entry (`DefaultMode.CanWallrun()`), a state's `Switch()` or `Process()` inside a mode. Nothing caches query results on a context for other code to read, unless two providers genuinely need the same result in one step.
 
-**Camera-effect components** are sample `MonoBehaviour`s on the camera, in namespace `Radknee.MovementFramework.Examples`. They read the contexts through `ServiceManager` in `LateUpdate()`, so they see the pose `MovementController.Update()` has just drawn. They must not write what `MovementController` writes: the character's transform and the camera's `localRotation`. Head bob belongs in the camera's `localPosition`, and FOV in `Camera.fieldOfView`.
+**Camera-effect components** are sample `MonoBehaviour`s on the camera, in namespace `Radknee.MovementFramework.Examples`. They read the contexts through `ServiceManager` in `LateUpdate()`, so they see the pose `MovementController.Update()` has just drawn. They must not write what `MovementMotor` writes: the character's transform and the camera's `localRotation`. Head bob belongs in the camera's `localPosition`, and FOV in `Camera.fieldOfView`.
 
 **Layout.** Every mode takes this shape, and new files follow it:
 
@@ -71,7 +71,9 @@ Do not move existing files as part of other work. A layout change is a deliberat
 - A state or provider regenerating a resource. The player-values service regenerates; states only check and spend.
 - A `SlidingState` or `DashingState` added to `HorizontalMovementProvider`. Abilities are modes.
 - A method on `MovementState` or `MovementProvider` shared by several states.
-- Drawing or extrapolation logic in a provider, mode or motor. The framework runs only on the physics clock.
+- Drawing or extrapolation logic in a provider or mode, or anywhere in the motor but `Extrapolate()`. Everything below the motor runs only on the physics clock.
+- `MovementMotor.Extrapolate()` writing a context. It only places the drawn pose on the transform and camera.
+- `MovementController` writing the character's transform, the camera's rotation or `PhysicsContext.Position`. The motor owns all three.
 - An `ImpulseProvider` holding external pushes as its own velocity. It would need its own gravity and drag, and the vertical states would keep overwriting the axis it fights them for. Pushes are a separate velocity in `MovementMotor`, added after the mode (see External forces).
 - A check for external pushes inside a state, or a motor or controller reaching into providers to apply one. Impulses never get below the motor.
 
@@ -80,8 +82,8 @@ Do not move existing files as part of other work. A layout change is a deliberat
 Four nested layers, each a state machine or a container of them. Understanding the velocity flow between them is the thing that requires reading several files at once.
 
 ```
-MovementController (MonoBehaviour)  drives everything, owns CharacterController
-  └─ MovementMotor                  picks the active MovementMode
+MovementController (MonoBehaviour)  builds the motor, enables it, drives both clocks
+  └─ MovementMotor                  picks the active MovementMode; moves and draws the character
        └─ MovementMode              e.g. DefaultMode; holds several providers
             └─ MovementProvider     Rotation, Horizontal, Vertical, Carry, Push; one state machine each
                  └─ MovementState   e.g. Grounded, Jumping, Falling
@@ -114,13 +116,17 @@ Anything else that couples two providers through the context will need the same 
 
 This is the most important constraint in the codebase and the source of a whole class of bugs.
 
-- `MovementController.Update()` polls input through `ServiceManager.Process()`, then `Extrapolate()` draws the character by carrying the latest step's result forward.
-- `MovementController.FixedUpdate()` runs `MovementMotor.Process()`, places the character back at `PhysicsContext.Position` with the new rotations, and calls `CharacterController.Move()`. After the move it writes where the character actually stopped to `PhysicsContext.Position`. That is the only runtime state the controller writes, because only it sees the result of `Move()`.
+`MovementController` only builds the motor and drives its two clocks; the motor does the work on both.
 
-**Rendering is extrapolated, at the top, from what the motor hands over.** The movement framework runs only on the physics clock and knows nothing about drawing. Its outputs are the summed `Velocity` and the composed `Rotation` and `CameraRotation`. `MovementController.Extrapolate()` carries those forward by the seconds since the last step (`Time.time - Time.fixedTime`, clamped to one step). Nothing about earlier steps is kept.
+- `MovementController.Update()` polls input through `ServiceManager.Process()`, then calls `MovementMotor.Extrapolate()`, which draws the character by carrying the latest step's result forward.
+- `MovementController.FixedUpdate()` calls `MovementMotor.Process()`, which runs the mode, places the character back at `PhysicsContext.Position` with the new rotations (`Rotate()`), and calls `CharacterController.Move()` (`Move()`). After the move it writes where the character actually stopped to `PhysicsContext.Position`. That is the only runtime state the motor writes, because only it sees the result of `Move()`.
+
+The motor reaches the character through `IPhysicsContext.CharacterController` and the camera through the transform `MovementController` passes to its constructor, beside the two contexts and the modes.
+
+**Rendering is extrapolated by the motor, from its own outputs.** Modes, providers and states run only on the physics clock and know nothing about drawing. The motor's outputs are the summed `Velocity` and the composed `Rotation` and `CameraRotation`. `MovementMotor.Extrapolate()`, called from `Update()`, carries those forward by the seconds since the last step (`Time.time - Time.fixedTime`, clamped to one step) and places the character and camera there with `Rotate()`. It writes no context. Nothing about earlier steps is kept.
 
 - **Position is `PhysicsContext.Position + CharacterController.velocity × elapsed`.** That is the providers' summed velocity as the last `Move()` actually carried it out. **Never extrapolate by `MovementMotor.Velocity`**, the raw sum: it points into anything blocking the move. While standing it holds `GroundingForce`, which drew the camera up to `2 m/s × 0.02 s` = 4 cm into the floor and snapped it back every step. That vertical sawtooth made pitch visibly choppier than yaw, because it runs along the same axis as the scene moving when you look up and down. Walls did the same sideways.
-- **Rotation is carried forward by pending input, not by time.** The controller turns the motor's rotations by the summed `LookInput` without draining it, applying exactly the turn `RotatingState` will. So the view turns on the frame the mouse moves, and the next step lands on precisely what was drawn. The two copies of that turn, `PitchOf()` included, must be kept in step.
+- **Rotation is carried forward by pending input, not by time.** The motor turns its rotations by the summed `LookInput` without draining it, applying exactly the turn `RotatingState` will. So the view turns on the frame the mouse moves, and the next step lands on precisely what was drawn. The two copies of that turn, `PitchOf()` included, must be kept in step.
 
 Consequences:
 
@@ -134,7 +140,7 @@ Two inputs need carrying over, in two different ways:
 | Input | Kind | Carried by | Drained by |
 | --- | --- | --- | --- |
 | `JumpPressed` | edge | latched true, never cleared by the service | `JumpingState.Start()` |
-| `LookInput` | per-frame delta | **summed** by the service, `+=` not `=` | `RotatingState.Process()`; read undrained by `MovementController.Extrapolate()` |
+| `LookInput` | per-frame delta | **summed** by the service, `+=` not `=` | `RotatingState.Process()`; read undrained by `MovementMotor.Extrapolate()` |
 
 The look case is the subtler one. Mouse delta is a displacement reported once per frame, so on a frame with no physics step an assignment throws that displacement away for good — and since the number of skipped frames varies with frame rate, so does the total rotation. Summing makes the accumulated delta frame-rate independent. For the same reason `RotatingState` does **not** scale it by `fixedDeltaTime`: it is already a displacement, and scaling a displacement by a time step ties sensitivity to the physics rate.
 
@@ -184,9 +190,9 @@ These are settings, not states: the air is not a phase of horizontal movement, o
 
 Anything outside the movement layer, such as a rocket blast, a launch pad or wind, pushes a character by raising an impulse on the static router: `ImpulseEvents.ApplyImpulse(GameObject target, Vector3 velocity, float decayTime, AnimationCurve falloff = null)`. The target is the character's `GameObject`, the one carrying its `MovementController` and `CharacterController`. The **source owns the force**: it works out direction, falloff with distance, strength, how long the push lasts and, optionally, the shape of its fade, then hands over only those. `ImpulseEvents` is the only channel. Do not add a second channel, an impulse provider, an `IImpulseReceiver` interface, or a method on `MovementController` that takes impulses. `RocketJumpTester` is the reference caller.
 
-**Impulses are a separate velocity, held in the motor and added after the mode.** `ImpulseEvents` routes each impulse to the one receiver registered for its target, so a motor never sees an impulse meant for another character and does not know which `GameObject` it moves. `MovementController` registers its motor's `AddImpulse()` under its own `GameObject`. `MovementMotor.Velocity` is the current mode's velocity plus every impulse still fading, and `MovementController` moves by it alone. The motor reads no context for this. Modes, providers, states and contexts never see impulses: none of them knows about them. Keep it that way. Do not reach into providers, and do not add impulse checks to a state.
+**Impulses are a separate velocity, held in the motor and added after the mode.** `ImpulseEvents` routes each impulse to the one receiver registered for its target, so a motor never sees an impulse meant for another character. The motor registers its private `AddImpulse()` under the `CharacterController`'s `GameObject`. `MovementMotor.Velocity` is the current mode's velocity plus every impulse still fading, and the motor moves by it alone. Modes, providers, states and contexts never see impulses: none of them knows about them. Keep it that way. Do not reach into providers, and do not add impulse checks to a state.
 
-**The registration must be released.** `ImpulseEvents` is static, so its table keeps every registered motor alive. `MovementController` registers in `OnEnable()` and calls `ImpulseEvents.Unregister()` in `OnDisable()`, so a disabled character is not pushed and impulses do not pile up while it is off. Anything else that builds a motor must do the same.
+**The motor must be disabled before it is dropped.** `ImpulseEvents` is static, so its table keeps every registered motor alive. A motor starts disabled: `MovementMotor.Enable()` registers it, and `Disable()` unregisters it. While disabled, `Process()` and `Extrapolate()` do nothing, so the character is neither moved nor pushed and impulses do not pile up. `MovementController` calls `Enable()` in `OnEnable()` and `Disable()` in `OnDisable()`. Anything else that builds a motor must do the same.
 
 Naming:
 
@@ -194,7 +200,7 @@ Naming:
 | --- | --- |
 | `ImpulseEvents` | Static class at the core root. Holds only a table from target `GameObject` to receiver; `Register()` and `Unregister()` maintain it, and `ApplyImpulse()` calls the target's receiver, dropping the impulse if there is none. |
 | `MovementMotor.Impulse` | One push: a private nested struct holding `Velocity` (full strength), `DecayTime`, `Falloff` and `Age`, all in seconds where timed. `CurrentVelocity` is the velocity scaled by the falloff curve at `Age / DecayTime`, or faded linearly when `Falloff` is null; `IsExpired` is age past decay time. |
-| `MovementMotor.AddImpulse()` | The receiver. Adds one new `Impulse`, with no target check. Called only through `ImpulseEvents`, never by a source directly. A null curve, or one with no keys, is stored as null and fades linearly. |
+| `MovementMotor.AddImpulse()` | The receiver, private, registered by `Enable()`. Adds one new `Impulse`, with no target check. Reachable only through `ImpulseEvents`. A null curve, or one with no keys, is stored as null and fades linearly. |
 | `MovementMotor._impulses` | Every impulse still fading. |
 | `MovementMotor.TakeImpulseVelocity()` | After the mode runs. Sums every impulse's `CurrentVelocity` into `Velocity`, then ages each by `fixedDeltaTime` and removes expired ones. |
 
@@ -231,13 +237,13 @@ Naming:
 
 `RotationProvider` owns a single state, `RotatingState`, which turns two quaternions on the physics context by the drained look delta and then outputs them. Rotation is held only as quaternions; there are no stored angles.
 
-- `PhysicsContext.Rotation` — the character's heading, a rotation about world up only. The **single source of truth for which way the character faces**, and what `MovingState` steers by, so it is also what makes movement relative to the camera. Read it rather than `transform.rotation`: the transform is only rotated by `MovementController` after the whole motor has run, so during a step it still holds the previous step's heading, and between steps it holds an extrapolated one. Yaw is applied by multiplication and the result normalized, so repeated products cannot drift.
+- `PhysicsContext.Rotation` — the character's heading, a rotation about world up only. The **single source of truth for which way the character faces**, and what `MovingState` steers by, so it is also what makes movement relative to the camera. Read it rather than `transform.rotation`: the transform is only rotated by `MovementMotor.Process()` after the whole mode has run, so during a step it still holds the previous step's heading, and between steps it holds an extrapolated one. Yaw is applied by multiplication and the result normalized, so repeated products cannot drift.
 - `PhysicsContext.CameraRotation` — the camera's pitch, a local rotation about X only, kept within `MinPitchAngle`..`MaxPitchAngle`. Negative looks up, because looking up is a negative rotation about X. A clamp needs an angle, so the pitch is read back out with `PitchOf()`, moved, clamped, and rebuilt. `PitchOf()` is exact because the quaternion holds only `w` and `x`, and `w` stays positive inside ±90. The limits stop just short of ±90 so it never has to read a pitch at the pole.
 - Both start at `Quaternion.identity`, never `default`, since a zeroed quaternion annihilates anything it multiplies.
 
 Both are runtime state, so `PhysicsProvider` must not touch them; only the limits are settings.
 
-**The split is the provider's to make, not the controller's.** `RotatingState` outputs yaw only as `Rotation` and pitch only as `CameraRotation`, and `MovementController.Rotate()` assigns them straight across, with `Extrapolate()` turning each only about its own axis — body from `Rotation`, camera from `CameraRotation`. The body must never take pitch, or the capsule tips and `CharacterController` starts fighting the ground; the movement vector must never take pitch either, or looking up walks the character into the air.
+**The split is the provider's to make, not the motor's.** `RotatingState` outputs yaw only as `Rotation` and pitch only as `CameraRotation`, and `MovementMotor.Rotate()` assigns them straight across, with `MovementMotor.Extrapolate()` turning each only about its own axis — body from `Rotation`, camera from `CameraRotation`. The body must never take pitch, or the capsule tips and `CharacterController` starts fighting the ground; the movement vector must never take pitch either, or looking up walks the character into the air.
 
 **The camera must be a child of the character.** Pitch is written to the camera's *local* rotation so it composes with the body's yaw. A camera parented anywhere else gets pitch but never yaw, and the view will not turn.
 
@@ -250,7 +256,7 @@ The one exception is **player resources**: values that are spent and regenerate,
 It holds two kinds of property, written by different owners:
 
 - **Settings** are owned by the `PhysicsProvider` scene component and follow the three-file rule in `Assets/Src/Services/CLAUDE.md`. Nothing else writes them at runtime.
-- **Runtime state** is owned by the movement states, plus `Position`, which `MovementController` writes after each `Move()`. It must never appear in `PhysicsProvider`, which reasserts everything it knows every frame.
+- **Runtime state** is owned by the movement states, plus `Position`, which `MovementMotor` writes after each `Move()`. It must never appear in `PhysicsProvider`, which reasserts everything it knows every frame.
 
 ## Conventions
 
@@ -262,7 +268,6 @@ It holds two kinds of property, written by different owners:
 
 Scaffolding that exists but does nothing yet. Do not assume these work.
 
-- `MovementMotor.Move()`, `Rotate()` and `RotateCamera()` are empty.
 - `DefaultMode.CanWallrun()`, `CanClimb()` and `CanSlide()` return false, and only one mode is registered.
 - `IPlayerContext` does not exist yet. The first resource to be added brings it into being: the interface and implementation go at the core root beside the other contexts, and `MovementProvider` gains a `PlayerContext` property set in every provider's constructor like the other two.
 - `MovementController` declares `namespace Radknee.Gameplay`, a legacy name, and `CubeRotator` declares none. New sample files use `Radknee.MovementFramework.Examples`.

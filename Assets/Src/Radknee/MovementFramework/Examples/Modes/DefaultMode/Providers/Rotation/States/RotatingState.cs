@@ -65,7 +65,7 @@ namespace Radknee.MovementFramework.Examples
 
         /// <summary>
         /// The pitch, in degrees, of a rotation about X alone; exact while inside ±90. Copied in
-        /// MovementController.PitchOf(); keep the two in step.
+        /// MovementMotor.PitchOf(); keep the two in step.
         /// </summary>
         private static float PitchOf(Quaternion cameraRotation)
         {

@@ -42,8 +42,8 @@ Select the **Scripts** object in the scene. Changes made during Play mode take e
 ## Structure
 
 ```
-MovementController (MonoBehaviour)  drives everything, owns the CharacterController
-  └─ MovementMotor                  runs the active mode and switches between modes
+MovementController (MonoBehaviour)  builds and enables the motor, and drives its clocks
+  └─ MovementMotor                  runs the active mode, switches modes, moves and draws the character
        └─ MovementMode              one ability, e.g. DefaultMode; holds several providers
             └─ MovementProvider     one slice of the output; a state machine
                  └─ MovementState   one phase of that slice, e.g. Grounded, Jumping, Falling

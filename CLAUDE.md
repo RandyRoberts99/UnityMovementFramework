@@ -62,7 +62,7 @@ Wrong, even though each looks reasonable:
 - A third settings `MonoBehaviour`. `PhysicsProvider` bridges `PhysicsContext` settings and `InputProvider` bridges `InputContext` settings; extend one of them.
 - A new context interface such as `IStaminaContext` or `ICrouchContext`. Movement state goes on `IPhysicsContext` and resources on `IPlayerContext`; there is no third option.
 - Cursor locking or other app glue in `MovementController`. The cursor lock is in `InputService`; other app glue is a service.
-- Head bob or FOV logic in `MovementController.Extrapolate()`. `Extrapolate()` only carries the simulated pose forward; effects are their own component.
+- Head bob or FOV logic in `MovementMotor.Extrapolate()`. `Extrapolate()` only carries the simulated pose forward; effects are their own component.
 - A concrete mode, provider or state in the framework root. The core stays abstract.
 - A new handler interface, or implementing `IMovementHandler`. The handler interfaces are vestigial.
 
@@ -76,7 +76,7 @@ Wrong, even though each looks reasonable:
 ## Conventions
 
 - **One utility class: `PhysicsUtilities`.** It is a static class at the framework core root. Each function takes the specific values it needs (a controller, a position, a matrix), never a context, and resolves one physics task a state uses to work out its movement, returning the answer. Nothing in it reads input, writes a context or decides a transition; the calling state does that with the result. Complex physics calculation in a state belongs there, even with a single caller. Do not add another utility or helper class.
-- **No other helper classes.** A new class is justified only by a new concept: a mode, provider, state, service, context implementation or camera-effect component. A small function needed in two places is duplicated, with a comment in each copy naming the other and saying to keep them in step (see `PitchOf()` in `MovementController` and `RotatingState`).
+- **No other helper classes.** A new class is justified only by a new concept: a mode, provider, state, service, context implementation or camera-effect component. A small function needed in two places is duplicated, with a comment in each copy naming the other and saying to keep them in step (see `PitchOf()` in `MovementMotor` and `RotatingState`).
 - **Every new file uses its module's `Radknee.*` namespace.** Legacy exceptions, not to be copied or fixed in passing: `ServiceManager`, `PhysicsService`, `PhysicsProvider` and `CubeRotator` are in the global namespace, and `MovementController` is in `Radknee.Gameplay`.
 - **"Provider" means a `MovementProvider` or an `I*Provider` output interface.** `PhysicsProvider` and `InputProvider` are the settings bridges, named before this rule; do not create more `*Provider` components.
 - Source files use **CRLF** line endings and some carry a UTF-8 BOM, matching Visual Studio output. `core.autocrlf` is false, so writing a file with LF rewrites every line in the diff. Preserve the existing endings when editing.
