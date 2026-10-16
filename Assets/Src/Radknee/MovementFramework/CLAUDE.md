@@ -139,8 +139,8 @@ Two inputs need carrying over, in two different ways:
 
 | Input | Kind | Carried by | Drained by |
 | --- | --- | --- | --- |
-| `JumpPressed` | edge | latched true, never cleared by the service | `JumpingState.Start()` |
-| `LookInput` | per-frame delta | **summed** by the service, `+=` not `=` | `RotatingState.Process()`; read undrained by `MovementMotor.Extrapolate()` |
+| `JumpPressed` | edge | latched true, never cleared by the service | `JumpingState.Start()`; discarded by `MovementMotor.Unlock()` |
+| `LookInput` | per-frame delta | **summed** by the service, `+=` not `=` | `RotatingState.Process()`; read undrained by `MovementMotor.Extrapolate()`; discarded by `MovementMotor.Unlock()` |
 
 The look case is the subtler one. Mouse delta is a displacement reported once per frame, so on a frame with no physics step an assignment throws that displacement away for good — and since the number of skipped frames varies with frame rate, so does the total rotation. Summing makes the accumulated delta frame-rate independent. For the same reason `RotatingState` does **not** scale it by `fixedDeltaTime`: it is already a displacement, and scaling a displacement by a time step ties sensitivity to the physics rate.
 
@@ -193,6 +193,13 @@ Anything outside the movement layer, such as a rocket blast, a launch pad or win
 **Impulses are a separate velocity, held in the motor and added after the mode.** `ImpulseEvents` routes each impulse to the one receiver registered for its target, so a motor never sees an impulse meant for another character. The motor registers its private `AddImpulse()` under the `CharacterController`'s `GameObject`. `MovementMotor.Velocity` is the current mode's velocity plus every impulse still fading, and the motor moves by it alone. Modes, providers, states and contexts never see impulses: none of them knows about them. Keep it that way. Do not reach into providers, and do not add impulse checks to a state.
 
 **The motor must be disabled before it is dropped.** `ImpulseEvents` is static, so its table keeps every registered motor alive. A motor starts disabled: `MovementMotor.Enable()` registers it, and `Disable()` unregisters it. While disabled, `Process()` and `Extrapolate()` do nothing, so the character is neither moved nor pushed and impulses do not pile up. `MovementController` calls `Enable()` in `OnEnable()` and `Disable()` in `OnDisable()`. Anything else that builds a motor must do the same.
+
+**To stop movement without disabling the component, lock the motor.** `MovementMotor.Lock()` and `Unlock()` are independent of enabling, and the motor moves only while it is enabled and unlocked.
+
+- `Lock()` puts the character back at the simulated pose, so it is not left drawn up to a step ahead, and then `Process()` and `Extrapolate()` do nothing. Impulses are held, not cleared: those still fading and any applied during the lock wait unaged, since only `Process()` ages them.
+- `Unlock(dropImpulses)` lets the caller decide what the held impulses do. False, the default, resumes them at the strength they were held at, so a blast during the lock launches the character on release. True drops them all.
+- `Unlock()` discards the `LookInput` and `JumpPressed` that arrived during the lock. `MovementController.Update()` keeps polling input while locked, and with no step to drain it the summed look would turn the view all at once and a latched press would jump on release. These are the only input writes outside `InputService` and the states.
+- Everything else resumes where it stopped: the current mode and states, and each provider's velocity, so a character locked while running carries on at that speed, and one locked in the air hangs there until unlocked.
 
 Naming:
 

@@ -35,8 +35,7 @@ namespace Radknee.Gameplay
 
         void OnEnable()
         {
-            // With the component, so a disabled character is neither moved nor pushed, and
-            // impulses do not pile up while it is off.
+            // The motor runs only while this component is enabled.
             _movementMotor.Enable();
         }
 
@@ -79,7 +78,7 @@ namespace Radknee.Gameplay
         }
 
         /// <summary>
-        /// Register new movement modes here. The first is the starting mode.
+        /// Register movement modes here. The first is the starting mode.
         /// </summary>
         private List<MovementMode> CreateMovementModes()
         {

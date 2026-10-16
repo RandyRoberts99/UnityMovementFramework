@@ -6,22 +6,20 @@ namespace Radknee.MovementFramework
     public class MovementMotor : IForceProvider, IRotationProvider
     {
         /// <summary>
-        /// One external push: a velocity that fades to nothing over its decay time.
+        /// An external push that fades out over its decay time.
         /// </summary>
         private struct Impulse
         {
-            /// <summary>The velocity at full strength.</summary>
+            /// <summary>Velocity at full strength.</summary>
             public Vector3 Velocity;
 
-            /// <summary>Seconds from full strength to nothing. Zero lasts a single physics step.</summary>
+            /// <summary>Seconds to fade out. Zero lasts one physics step.</summary>
             public float DecayTime;
 
-            /// <summary>
-            /// Strength against progress through the decay time, 0 to 1. Null fades linearly.
-            /// </summary>
+            /// <summary>Strength over the decay time, 0 to 1. Null fades linearly.</summary>
             public AnimationCurve Falloff;
 
-            /// <summary>Seconds of physics time the impulse has been applied for.</summary>
+            /// <summary>Seconds since the impulse was applied.</summary>
             public float Age;
 
             public Vector3 CurrentVelocity => DecayTime > 0f ? Velocity * StrengthAt(Age / DecayTime) : Velocity;
@@ -37,37 +35,42 @@ namespace Radknee.MovementFramework
         private readonly IInputContext _inputContext;
         private readonly IPhysicsContext _physicsContext;
 
-        // Takes the pitch. Optional: without it the view never pitches.
+        // Receives the pitch. Optional.
         private readonly Transform _cameraTransform;
 
         private List<MovementMode> _modes;
         private MovementMode _currentMode;
 
-        // Every impulse still fading, each on its own clock.
+        // Impulses still fading.
         private readonly List<Impulse> _impulses = new();
 
-        // The GameObject registered with ImpulseEvents while enabled.
+        // The GameObject registered with ImpulseEvents.
         private GameObject _impulseTarget;
 
         /// <summary>
-        /// The current mode's velocity plus every impulse still fading.
+        /// The current mode's velocity plus every active impulse.
         /// </summary>
         public Vector3 Velocity { get; private set; }
-        // Identity, not default: Extrapolate() may run before the first physics step.
+        // Identity, not default, in case Extrapolate() runs before the first step.
         public Quaternion Rotation { get; private set; } = Quaternion.identity;
         public Quaternion CameraRotation { get; private set; } = Quaternion.identity;
 
         /// <summary>
-        /// Whether the motor steps, draws and takes impulses. Starts false; see Enable().
+        /// Whether the motor is running. Starts false.
         /// </summary>
         public bool IsEnabled { get; private set; }
+
+        /// <summary>
+        /// Whether movement is paused while the motor stays enabled.
+        /// </summary>
+        public bool IsLocked { get; private set; }
 
         public MovementMode GetState<U>() where U : MovementMode
         {
             return _modes.Find(state => state is U);
         }
 
-        /// <param name="cameraTransform">A child of the character, given the pitch as its local rotation.</param>
+        /// <param name="cameraTransform">The character's child camera, which receives the pitch.</param>
         public MovementMotor(IInputContext inputContext, IPhysicsContext physicsContext,
             List<MovementMode> modes, Transform cameraTransform)
         {
@@ -78,7 +81,7 @@ namespace Radknee.MovementFramework
         }
 
         /// <summary>
-        /// Starts stepping and drawing, and makes the character pushable.
+        /// Starts the motor and makes the character pushable.
         /// </summary>
         public void Enable()
         {
@@ -89,13 +92,13 @@ namespace Radknee.MovementFramework
 
             IsEnabled = true;
 
-            // Under the character's GameObject, which is what impulse sources target.
+            // Impulse sources target the character's GameObject.
             _impulseTarget = _physicsContext.CharacterController.gameObject;
             ImpulseEvents.Register(_impulseTarget, AddImpulse);
         }
 
         /// <summary>
-        /// Stops stepping and drawing. Required before the motor is dropped: see below.
+        /// Stops the motor. Call before discarding it.
         /// </summary>
         public void Disable()
         {
@@ -106,17 +109,56 @@ namespace Radknee.MovementFramework
 
             IsEnabled = false;
 
-            // The table in ImpulseEvents is static, and would otherwise keep the motor alive.
+            // ImpulseEvents is static and would otherwise keep the motor alive.
             ImpulseEvents.Unregister(_impulseTarget);
             _impulseTarget = null;
         }
 
         /// <summary>
-        /// One physics step: runs the mode, then moves the character by the result.
+        /// Pauses movement and drawing. Impulses are kept until Unlock().
+        /// </summary>
+        public void Lock()
+        {
+            if (IsLocked)
+            {
+                return;
+            }
+
+            IsLocked = true;
+
+            // Snap back from the drawn pose to the simulated one.
+            Rotate(_physicsContext.Position, Rotation, CameraRotation);
+        }
+
+        /// <summary>
+        /// Resumes movement.
+        /// </summary>
+        /// <param name="dropImpulses">True drops the impulses held during the lock; false resumes them.</param>
+        public void Unlock(bool dropImpulses = false)
+        {
+            if (!IsLocked)
+            {
+                return;
+            }
+
+            IsLocked = false;
+
+            if (dropImpulses)
+            {
+                _impulses.Clear();
+            }
+
+            // Discard input buffered during the lock, so the view doesn't snap and a press doesn't jump.
+            _inputContext.LookInput = Vector2.zero;
+            _inputContext.JumpPressed = false;
+        }
+
+        /// <summary>
+        /// Runs one physics step and moves the character.
         /// </summary>
         public void Process()
         {
-            if (!IsEnabled)
+            if (!IsEnabled || IsLocked)
             {
                 return;
             }
@@ -141,14 +183,13 @@ namespace Radknee.MovementFramework
             Rotation = _currentMode.Rotation;
             CameraRotation = _currentMode.CameraRotation;
 
-            // Replace the drawn pose with the simulated one so the move starts from it.
+            // Move from the simulated pose, not the drawn one.
             Rotate(_physicsContext.Position, Rotation, CameraRotation);
             Move(Velocity);
         }
 
         /// <summary>
-        /// The receiver Enable() registers with ImpulseEvents. Sources call
-        /// ImpulseEvents.ApplyImpulse().
+        /// Receives impulses from ImpulseEvents.
         /// </summary>
         private void AddImpulse(Vector3 velocity, float decayTime, AnimationCurve falloff)
         {
@@ -156,20 +197,20 @@ namespace Radknee.MovementFramework
             {
                 Velocity = velocity,
                 DecayTime = Mathf.Max(decayTime, 0f),
-                // Inspector curves are empty rather than null, and an empty curve cancels the push.
+                // An empty inspector curve would cancel the push, so treat it as linear.
                 Falloff = falloff != null && falloff.length > 0 ? falloff : null,
                 Age = 0f
             });
         }
 
         /// <summary>
-        /// Sums every impulse for this step, then ages them and removes the expired ones.
+        /// Sums this step's impulses, then ages them and removes expired ones.
         /// </summary>
         private Vector3 TakeImpulseVelocity()
         {
             Vector3 velocity = Vector3.zero;
 
-            // Backwards, so removing an impulse does not skip the one after it.
+            // Backwards, so removing one doesn't skip the next.
             for (int i = _impulses.Count - 1; i >= 0; i--)
             {
                 Impulse impulse = _impulses[i];
@@ -191,11 +232,11 @@ namespace Radknee.MovementFramework
         }
 
         /// <summary>
-        /// Draws the character between physics steps by carrying the latest step forward.
+        /// Draws the character between physics steps.
         /// </summary>
         public void Extrapolate()
         {
-            if (!IsEnabled)
+            if (!IsEnabled || IsLocked)
             {
                 return;
             }
@@ -203,12 +244,12 @@ namespace Radknee.MovementFramework
             // Time since the last physics step.
             float elapsed = Mathf.Clamp(Time.time - Time.fixedTime, 0f, Time.fixedDeltaTime);
 
-            // The velocity the move achieved, not Velocity, which points into anything
-            // blocking the move (GroundingForce into the floor) and makes the camera judder.
+            // The velocity the move achieved. Velocity can point into the floor or a wall,
+            // which makes the camera judder.
             Vector3 position = _physicsContext.Position + _physicsContext.CharacterController.velocity * elapsed;
 
-            // Turned by the undrained look input, exactly as the next step will turn it. A copy of
-            // RotatingState's turn, PitchOf() included; keep the two in step.
+            // Pending look input, applied as the next step will apply it. Copies RotatingState's
+            // turn; keep the two in step.
             Vector2 pendingLook = _inputContext.LookInput * _inputContext.LookSensitivity;
 
             Quaternion characterRotation = Rotation * Quaternion.Euler(0f, pendingLook.x, 0f);
@@ -223,7 +264,7 @@ namespace Radknee.MovementFramework
         }
 
         /// <summary>
-        /// The pitch, in degrees, of a rotation about X alone. See RotatingState.PitchOf().
+        /// Pitch in degrees of a rotation about X. Copy of RotatingState.PitchOf(); keep in step.
         /// </summary>
         private static float PitchOf(Quaternion cameraRotation)
         {
@@ -246,12 +287,12 @@ namespace Radknee.MovementFramework
             CharacterController characterController = _physicsContext.CharacterController;
             characterController.Move(velocity * Time.fixedDeltaTime);
 
-            // Where the move actually stopped, for the next step to start from.
+            // Where the move stopped, for the next step to start from.
             _physicsContext.Position = characterController.transform.position;
         }
 
         /// <summary>
-        /// Yaw on the body, pitch on the camera. RotationProvider has already split them.
+        /// Yaw on the body, pitch on the camera.
         /// </summary>
         private void Rotate(Vector3 position, Quaternion characterRotation, Quaternion cameraRotation)
         {
@@ -259,7 +300,7 @@ namespace Radknee.MovementFramework
 
             if (_cameraTransform != null)
             {
-                // Local, so pitch composes with the body's yaw. The camera must be its child.
+                // Local, so it composes with the body's yaw.
                 _cameraTransform.localRotation = cameraRotation;
             }
         }
