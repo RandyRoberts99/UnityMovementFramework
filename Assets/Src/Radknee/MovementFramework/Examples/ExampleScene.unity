@@ -482,7 +482,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e754bcae95d12b649b1a138f34bf4fef, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CubeRotator
+  m_EditorClassIdentifier: Assembly-CSharp::Radknee.MovementFramework.CubeRotator
   degreesPerSecond: 50
 --- !u!1 &832575517
 GameObject:
@@ -691,7 +691,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 53ccb34b1154b0c4eadf78693ce42205, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PhysicsProvider
+  m_EditorClassIdentifier: Assembly-CSharp::Radknee.MovementFramework.PhysicsProvider
   movementSpeed: 5
   horizontalAcceleration: 50
   horizontalDrag: 15
@@ -733,7 +733,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6694cf14ffbcfa64795aa07909fd0989, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Radknee.Services.InputProvider
+  m_EditorClassIdentifier: Assembly-CSharp::Radknee.MovementFramework.InputProvider
   lookSensitivity: 0.161
 --- !u!114 &972485618
 MonoBehaviour:
@@ -746,7 +746,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 426c649c8381e3444819c435637718b4, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Radknee.MovementFramework.Examples.RocketJumpTester
+  m_EditorClassIdentifier: Assembly-CSharp::Radknee.MovementFramework.RocketJumpTester
   aimCamera: {fileID: 858264006}
   range: 50
   blastRadius: 4
@@ -900,7 +900,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a62eea74649413b4c98270340ad4481f, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Radknee.Gameplay.MovementController
+  m_EditorClassIdentifier: Assembly-CSharp::Radknee.MovementFramework.MovementController
   characterTranform: {fileID: 1218402372}
   characterCamera: {fileID: 858264006}
   characterController: {fileID: 1218402368}
@@ -1193,7 +1193,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 51d2c807d1c283b438e09b7c2aea81ed, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Radknee.MovementFramework.Examples.MovingPlatform
+  m_EditorClassIdentifier: Assembly-CSharp::Radknee.MovementFramework.MovingPlatform
   speed: 1
   offset: {x: 0, y: 0, z: 5}
   moveInCircle: 1

@@ -1,5 +1,3 @@
-
-using Radknee.Generics;
 using UnityEngine;
 
 namespace Radknee.MovementFramework

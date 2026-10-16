@@ -1,7 +1,6 @@
-﻿using Radknee.Generics;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
-namespace Radknee.MovementFramework.Examples
+namespace Radknee.MovementFramework
 {
     /// <summary>
     /// Yaw on the body and pitch on the camera; no velocity. Must run before

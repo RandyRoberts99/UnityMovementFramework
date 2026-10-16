@@ -1,7 +1,6 @@
-using Radknee.Generics;
 using UnityEngine;
 
-namespace Radknee.MovementFramework.Examples
+namespace Radknee.MovementFramework
 {
     /// <summary>
     /// Airborne: holds the ground's horizontal momentum unchanged until landing.

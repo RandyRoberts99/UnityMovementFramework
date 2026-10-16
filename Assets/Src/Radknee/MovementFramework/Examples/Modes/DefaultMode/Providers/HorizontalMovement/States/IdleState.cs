@@ -1,7 +1,6 @@
-using Radknee.Generics;
 using UnityEngine;
 
-namespace Radknee.MovementFramework.Examples
+namespace Radknee.MovementFramework
 {
     public class IdleState : MovementState
     {

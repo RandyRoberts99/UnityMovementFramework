@@ -1,7 +1,6 @@
-using Radknee.Generics;
 using System.Collections.Generic;
 
-namespace Radknee.MovementFramework.Examples
+namespace Radknee.MovementFramework
 {
     /// <summary>
     /// Carries the character with whatever it stands on. Like PushProvider it owns no axis: its

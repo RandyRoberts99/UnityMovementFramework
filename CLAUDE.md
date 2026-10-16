@@ -32,9 +32,9 @@ Editor executable: `E:\Unity\Unity Versions\6000.3.9f1\Editor\Unity.exe`. The on
 | Module | Folder | Namespace | Owns | Must not |
 | --- | --- | --- | --- | --- |
 | Framework core | `Assets/Src/Frameworks/MovementFramework/` (root files only) | `Radknee.MovementFramework` | The four abstract layers, the contexts and their implementations, the output interfaces, `ImpulseEvents`, `PhysicsUtilities` | Reference `Examples/` or `Services/`; know any concrete mode, provider, state, scene or input asset |
-| Sample | `Assets/Src/Frameworks/MovementFramework/Examples/` | `Radknee.MovementFramework.Examples` | Every concrete mode, provider and state; `MovementController`; camera-effect components; `Inputs.inputactions`; `SampleScene.unity` and its test props | Be referenced by the core or by services |
-| Services | `Assets/Src/Services/` | `Radknee.Services` | `IService` implementations, `ServiceManager`, the `PhysicsProvider` and `InputProvider` settings bridges, app-level Unity concerns | Contain movement simulation |
-| Generics | `Assets/Src/Generics/` | `Radknee.Generics` | Framework-agnostic contracts (`IState`, `IStateMachine`) | Hold utilities or helpers |
+| Sample | `Assets/Src/Frameworks/MovementFramework/Examples/` | `Radknee.MovementFramework` | Every concrete mode, provider and state; `MovementController`; camera-effect components; `Inputs.inputactions`; `SampleScene.unity` and its test props | Be referenced by the core or by services |
+| Services | `Assets/Src/Services/` | `Radknee.MovementFramework` | `IService` implementations, `ServiceManager`, the `PhysicsProvider` and `InputProvider` settings bridges, app-level Unity concerns | Contain movement simulation |
+| Generics | `Assets/Src/Generics/` | `Radknee.MovementFramework` | Framework-agnostic contracts (`IState`, `IStateMachine`) | Hold utilities or helpers |
 | Tests | `Assets/Tests/EditMode/`, mirroring the `Src/` folder under test | `Radknee.Tests` | Edit-mode tests, in their own test assembly definition | Be referenced by anything in `Src/` |
 
 Dependencies point one way: the sample uses the core, services and generics; services use the core; the core uses only generics.
@@ -77,7 +77,7 @@ Wrong, even though each looks reasonable:
 
 - **One utility class: `PhysicsUtilities`.** It is a static class at the framework core root. Each function takes the specific values it needs (a controller, a position, a matrix), never a context, and resolves one physics task a state uses to work out its movement, returning the answer. Nothing in it reads input, writes a context or decides a transition; the calling state does that with the result. Complex physics calculation in a state belongs there, even with a single caller. Do not add another utility or helper class.
 - **No other helper classes.** A new class is justified only by a new concept: a mode, provider, state, service, context implementation or camera-effect component. A small function needed in two places is duplicated, with a comment in each copy naming the other and saying to keep them in step (see `PitchOf()` in `MovementMotor` and `RotatingState`).
-- **Every new file uses its module's `Radknee.*` namespace.** Legacy exceptions, not to be copied or fixed in passing: `ServiceManager`, `PhysicsService`, `PhysicsProvider` and `CubeRotator` are in the global namespace, and `MovementController` is in `Radknee.Gameplay`.
+- **Every framework file uses the namespace `Radknee.MovementFramework`**, whatever its module. Module boundaries are kept by folder, not by namespace.
 - **"Provider" means a `MovementProvider` or an `I*Provider` output interface.** `PhysicsProvider` and `InputProvider` are the settings bridges, named before this rule; do not create more `*Provider` components.
 - Source files use **CRLF** line endings and some carry a UTF-8 BOM, matching Visual Studio output. `core.autocrlf` is false, so writing a file with LF rewrites every line in the diff. Preserve the existing endings when editing.
 - Unity `.meta` files are tracked.

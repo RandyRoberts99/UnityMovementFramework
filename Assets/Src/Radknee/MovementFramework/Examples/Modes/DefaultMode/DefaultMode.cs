@@ -1,8 +1,7 @@
-using Radknee.Generics;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Radknee.MovementFramework.Examples
+namespace Radknee.MovementFramework
 {
     public class DefaultMode : MovementMode
     {

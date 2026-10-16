@@ -1,8 +1,10 @@
 # Movement framework
 
-The **core** is the files at this folder's root: the four abstract layers, the contexts, the output interfaces, `ImpulseEvents` and `PhysicsUtilities`, namespace `Radknee.MovementFramework`. It is generic and must never reference `Examples/`.
+The **core** is the files at this folder's root: the four abstract layers, the contexts, the output interfaces, `ImpulseEvents` and `PhysicsUtilities`. It is generic and must never reference `Examples/`.
 
-**`Examples/`** is the reference sample, namespace `Radknee.MovementFramework.Examples`. Every concrete mode, provider and state lives there, and so does `MovementController`, the `MonoBehaviour` that drives the framework. A new movement ability is sample content. The core changes only when the ability needs a new *generic* contract, such as a property on `IPhysicsContext`.
+**`Examples/`** is the reference sample.
+
+Every file in the framework, core and sample alike, uses the one namespace `Radknee.MovementFramework`. The namespace therefore no longer keeps the core from seeing sample types: the compiler will accept a core file naming `DefaultMode`. The folder is the boundary, so check it by hand. Every concrete mode, provider and state lives there, and so does `MovementController`, the `MonoBehaviour` that drives the framework. A new movement ability is sample content. The core changes only when the ability needs a new *generic* contract, such as a property on `IPhysicsContext`.
 
 ## Where movement code goes
 
@@ -29,7 +31,7 @@ A distinct ability is a mode even when it touches one slice, which is why `Defau
 
 **World queries** place the capsule at `PhysicsContext.Position` and `Rotation`, never at the transform, which still holds the drawn pose while the motor runs. Its radius, height and centre come from the `CharacterController` on `PhysicsContext`, and `PhysicsUtilities.CapsuleSegment()` combines the two. Queries run where the decision is made: a mode's `Switch()` for entry (`DefaultMode.CanWallrun()`), a state's `Switch()` or `Process()` inside a mode. Nothing caches query results on a context for other code to read, unless two providers genuinely need the same result in one step.
 
-**Camera-effect components** are sample `MonoBehaviour`s on the camera, in namespace `Radknee.MovementFramework.Examples`. They read the contexts through `ServiceManager` in `LateUpdate()`, so they see the pose `MovementController.Update()` has just drawn. They must not write what `MovementMotor` writes: the character's transform and the camera's `localRotation`. Head bob belongs in the camera's `localPosition`, and FOV in `Camera.fieldOfView`.
+**Camera-effect components** are sample `MonoBehaviour`s on the camera, in `Examples/`. They read the contexts through `ServiceManager` in `LateUpdate()`, so they see the pose `MovementController.Update()` has just drawn. They must not write what `MovementMotor` writes: the character's transform and the camera's `localRotation`. Head bob belongs in the camera's `localPosition`, and FOV in `Camera.fieldOfView`.
 
 **Layout.** Every mode takes this shape, and new files follow it:
 
@@ -277,4 +279,3 @@ Scaffolding that exists but does nothing yet. Do not assume these work.
 
 - `DefaultMode.CanWallrun()`, `CanClimb()` and `CanSlide()` return false, and only one mode is registered.
 - `IPlayerContext` does not exist yet. The first resource to be added brings it into being: the interface and implementation go at the core root beside the other contexts, and `MovementProvider` gains a `PlayerContext` property set in every provider's constructor like the other two.
-- `MovementController` declares `namespace Radknee.Gameplay`, a legacy name, and `CubeRotator` declares none. New sample files use `Radknee.MovementFramework.Examples`.

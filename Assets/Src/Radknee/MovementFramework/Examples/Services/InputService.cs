@@ -1,9 +1,8 @@
 using UnityEngine;
-using Radknee.MovementFramework;
 using UnityEngine.InputSystem;
 using System;
 
-namespace Radknee.Services
+namespace Radknee.MovementFramework
 {
     public class InputService : IService
     {

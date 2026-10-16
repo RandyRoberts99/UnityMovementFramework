@@ -1,7 +1,6 @@
-using Radknee.Generics;
 using UnityEngine;
 
-namespace Radknee.MovementFramework.Examples
+namespace Radknee.MovementFramework
 {
     /// <summary>
     /// Grounded: outputs the ground's velocity where the character stands, so it moves with it.

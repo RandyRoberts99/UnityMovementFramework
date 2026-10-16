@@ -1,7 +1,6 @@
-using Radknee.Generics;
 using System.Collections.Generic;
 
-namespace Radknee.MovementFramework.Examples
+namespace Radknee.MovementFramework
 {
     /// <summary>
     /// The character's own jumping and falling on Y.

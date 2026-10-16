@@ -1,4 +1,4 @@
-namespace Radknee.Generics
+namespace Radknee.MovementFramework
 {
     public interface IState
     {

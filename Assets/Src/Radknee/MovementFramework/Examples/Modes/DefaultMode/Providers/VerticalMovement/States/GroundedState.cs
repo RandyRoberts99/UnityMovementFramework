@@ -1,7 +1,6 @@
-﻿using Radknee.Generics;
-using UnityEngine;
+﻿using UnityEngine;
 
-namespace Radknee.MovementFramework.Examples
+namespace Radknee.MovementFramework
 {
     public class GroundedState : MovementState
     {

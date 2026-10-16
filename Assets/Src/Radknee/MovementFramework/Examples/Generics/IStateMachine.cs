@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Radknee.Generics
+namespace Radknee.MovementFramework
 {
     /// <summary>
     /// A state machine whose states decide their own transitions.

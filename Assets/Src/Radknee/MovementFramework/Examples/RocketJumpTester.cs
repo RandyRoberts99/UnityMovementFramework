@@ -1,8 +1,6 @@
-using Radknee.Gameplay;
-using Radknee.Services;
 using UnityEngine;
 
-namespace Radknee.MovementFramework.Examples
+namespace Radknee.MovementFramework
 {
     /// <summary>
     /// Test prop for external forces. On Fire, a blast where the camera points pushes nearby

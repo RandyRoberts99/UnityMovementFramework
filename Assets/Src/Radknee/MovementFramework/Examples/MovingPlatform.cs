@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Radknee.MovementFramework.Examples
+namespace Radknee.MovementFramework
 {
     // Runs before MovementController (-100) so the character measures this step's pose. Keep
     // in step with CubeRotator; the framework CLAUDE.md, under Carrying, says why.

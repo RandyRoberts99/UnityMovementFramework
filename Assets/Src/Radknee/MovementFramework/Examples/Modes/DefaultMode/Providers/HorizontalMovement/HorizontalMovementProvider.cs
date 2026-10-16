@@ -1,7 +1,6 @@
-﻿using Radknee.Generics;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
-namespace Radknee.MovementFramework.Examples
+namespace Radknee.MovementFramework
 {
     /// <summary>
     /// The character's own steering on X and Z, on the ground and in the air.

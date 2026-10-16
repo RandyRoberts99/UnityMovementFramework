@@ -1,7 +1,6 @@
-﻿using Radknee.Generics;
-using UnityEngine;
+﻿using UnityEngine;
 
-namespace Radknee.MovementFramework.Examples
+namespace Radknee.MovementFramework
 {
     /// <summary>
     /// Turns accumulated look input into the character's yaw and the camera's pitch.

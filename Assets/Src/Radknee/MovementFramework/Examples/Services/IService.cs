@@ -1,5 +1,4 @@
-﻿
-namespace Radknee.Services
+﻿namespace Radknee.MovementFramework
 {
     public interface IService
     {

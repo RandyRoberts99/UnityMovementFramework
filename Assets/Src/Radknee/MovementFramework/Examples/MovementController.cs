@@ -1,10 +1,7 @@
-using Radknee.MovementFramework;
-using Radknee.MovementFramework.Examples;
-using Radknee.Services;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Radknee.Gameplay
+namespace Radknee.MovementFramework
 {
     [DefaultExecutionOrder(-100)]
     [RequireComponent(typeof(CharacterController))]

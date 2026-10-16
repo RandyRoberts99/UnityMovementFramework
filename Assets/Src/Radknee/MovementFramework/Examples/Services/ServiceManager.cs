@@ -1,44 +1,46 @@
-using Radknee.Services;
 using System.Collections.Generic;
 using UnityEngine;
 
-public static class ServiceManager
+namespace Radknee.MovementFramework
 {
-    private static readonly HashSet<IService> _services = new HashSet<IService>();
-
-    public static void Process()
+    public static class ServiceManager
     {
-        foreach (var service in _services)
-        {
-            service.Process();
-        }
-    }
+        private static readonly HashSet<IService> _services = new HashSet<IService>();
 
-    public static bool RegisterService<T>(T service) where T : IService
-    {
-        try
+        public static void Process()
         {
-            _services.Add(service);
-        }
-        catch (System.Exception ex)
-        {
-            Debug.LogError($"Failed to register service: {ex.Message}");
-            return false;
-        }
-
-        return true;
-    }
-
-    public static T GetService<T>() where T : IService
-    {
-        foreach (var service in _services)
-        {
-            if (service is T typedService)
+            foreach (var service in _services)
             {
-                return typedService;
+                service.Process();
             }
         }
 
-        return default;
+        public static bool RegisterService<T>(T service) where T : IService
+        {
+            try
+            {
+                _services.Add(service);
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"Failed to register service: {ex.Message}");
+                return false;
+            }
+
+            return true;
+        }
+
+        public static T GetService<T>() where T : IService
+        {
+            foreach (var service in _services)
+            {
+                if (service is T typedService)
+                {
+                    return typedService;
+                }
+            }
+
+            return default;
+        }
     }
 }

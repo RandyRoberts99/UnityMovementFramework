@@ -1,7 +1,6 @@
-using Radknee.Generics;
 using System.Collections.Generic;
 
-namespace Radknee.MovementFramework.Examples
+namespace Radknee.MovementFramework
 {
     /// <summary>
     /// Moves the character out of the way of moving colliders. Owns no axis: its velocity is an

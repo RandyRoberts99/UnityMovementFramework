@@ -1,7 +1,6 @@
-using Radknee.Generics;
 using UnityEngine;
 
-namespace Radknee.MovementFramework.Examples
+namespace Radknee.MovementFramework
 {
     /// <summary>
     /// Outputs the velocity that keeps each moving collider at its hold distance from the

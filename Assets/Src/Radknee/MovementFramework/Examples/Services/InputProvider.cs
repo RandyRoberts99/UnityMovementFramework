@@ -1,7 +1,6 @@
-using Radknee.MovementFramework;
 using UnityEngine;
 
-namespace Radknee.Services
+namespace Radknee.MovementFramework
 {
     /// <summary>
     /// Exposes <see cref="InputContext"/> settings in the inspector. Writes settings only; raw
