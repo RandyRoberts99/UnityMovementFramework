@@ -1,0 +1,17 @@
+{
+  "name": "com.radknee.movementframework",
+  "version": "0.1.0",
+  "displayName": "Radknee Movement Framework",
+  "description": "A state-machine-driven movement framework for CharacterController characters, with a first-person reference sample.",
+  "unity": "6000.3",
+  "unityRelease": "9f1",
+  "dependencies": {
+    "com.unity.inputsystem": "1.18.0",
+    "com.unity.modules.physics": "1.0.0"
+  },
+  "author": {
+    "name": "Randy Roberts",
+    "url": "https://github.com/RandyRoberts99"
+  },
+  "license": "MIT"
+}

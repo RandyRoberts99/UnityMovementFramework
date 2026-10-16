@@ -5,7 +5,7 @@ namespace Radknee.MovementFramework
     /// <summary>
     /// Turns accumulated look input into the character's yaw and the camera's pitch.
     /// </summary>
-    internal class RotatingState : MovementState, IRotationHandler, ICameraRotationHandler
+    internal class RotatingState : MovementState
     {
         public RotatingState(MovementProvider movementProvider) : base(movementProvider)
         {
@@ -33,8 +33,9 @@ namespace Radknee.MovementFramework
                 movementProvider.PhysicsContext.MaxPitchAngle);
             movementProvider.PhysicsContext.CameraRotation = Quaternion.Euler(pitch, 0f, 0f);
 
-            HandleRotation();
-            HandleCameraRotation();
+            // Yaw only on the body, so the capsule never tips; pitch only on the camera.
+            movementProvider.Rotation = movementProvider.PhysicsContext.Rotation;
+            movementProvider.CameraRotation = movementProvider.PhysicsContext.CameraRotation;
         }
 
         public override void End()
@@ -44,22 +45,6 @@ namespace Radknee.MovementFramework
         public override IState Switch()
         {
             return null;
-        }
-
-        /// <summary>
-        /// Yaw only: pitching the body would tip the capsule.
-        /// </summary>
-        public void HandleRotation()
-        {
-            movementProvider.Rotation = movementProvider.PhysicsContext.Rotation;
-        }
-
-        /// <summary>
-        /// Pitch only, applied to the camera's local rotation so it composes with the body's yaw.
-        /// </summary>
-        public void HandleCameraRotation()
-        {
-            movementProvider.CameraRotation = movementProvider.PhysicsContext.CameraRotation;
         }
 
         /// <summary>

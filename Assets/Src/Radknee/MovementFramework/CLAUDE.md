@@ -1,10 +1,10 @@
 # Movement framework
 
-The **core** is the files at this folder's root: the four abstract layers, the contexts, the output interfaces, `ImpulseEvents` and `PhysicsUtilities`. It is generic and must never reference `Examples/`.
+The **core** is the files at this folder's root: the four abstract layers, the contexts, the output interfaces, `ImpulseEvents` and `PhysicsUtilities`, together with the contracts in `Generics/`. It is generic and must never reference `Examples/`.
 
-**`Examples/`** is the reference sample.
+Everything here uses the one namespace `Radknee.MovementFramework`, but the core and the sample are separate assemblies. The core's `Radknee.MovementFramework` references nothing, so a core file naming `DefaultMode` or the Input System does not compile. `Examples/` is `Radknee.MovementFramework.Examples`, which references the core and `Unity.InputSystem`.
 
-Every file in the framework, core and sample alike, uses the one namespace `Radknee.MovementFramework`. The namespace therefore no longer keeps the core from seeing sample types: the compiler will accept a core file naming `DefaultMode`. The folder is the boundary, so check it by hand. Every concrete mode, provider and state lives there, and so does `MovementController`, the `MonoBehaviour` that drives the framework. A new movement ability is sample content. The core changes only when the ability needs a new *generic* contract, such as a property on `IPhysicsContext`.
+**`Examples/`** is the reference sample, and it ships in the package with the core. Every concrete mode, provider and state lives there, and so does `MovementController`, the `MonoBehaviour` that drives the framework. A new movement ability is sample content. The core changes only when the ability needs a new *generic* contract, such as a property on `IPhysicsContext`.
 
 ## Where movement code goes
 
@@ -18,9 +18,9 @@ Pick the layer first, by what the new behaviour does:
 | Changes what an existing phase does | That state's `Start()`/`Process()` | — |
 | Changes when phases change | That state's `Switch()` | — |
 | Moves between modes | The *current* mode's `Switch()` | — |
-| Needs a tuned number | Settings property on `IPhysicsContext` | See `Assets/Src/Services/CLAUDE.md` |
+| Needs a tuned number | Settings property on `IPhysicsContext` | See `Examples/Services/CLAUDE.md` |
 | Needs memory across steps, entries or states (timers, crouch height) | Runtime property on `IPhysicsContext`, reset in `Start()` if per-entry | — |
-| Checks or spends a resource (stamina, dash charges) | Reads and spends through `IPlayerContext`; never regenerates it | Planned: see `Assets/Src/Services/CLAUDE.md` |
+| Checks or spends a resource (stamina, dash charges) | Reads and spends through `IPlayerContext`; never regenerates it | Planned: see `Examples/Services/CLAUDE.md` |
 | Needs to know about the world (a wall, a ledge) | A `Physics.*` query, or a `PhysicsUtilities` function if it is complex, in the state or mode whose `Switch()`/`Process()` makes the decision | — |
 | Changes how the character's pose is drawn between steps | `MovementMotor.Extrapolate()`, from motor outputs and contexts only | — |
 | Is a camera effect driven by movement (head bob, FOV kick) | Its own `MonoBehaviour` in `Examples/` | See below |
@@ -39,7 +39,7 @@ A distinct ability is a mode even when it touches one slice, which is why `Defau
 Examples/
   MovementController.cs
   Inputs.inputactions               project-wide actions asset
-  SampleScene.unity                 the only scene
+  ExampleScene.unity                the only scene
   MovingPlatform.cs, CubeRotator.cs, RocketJumpTester.cs   scene test props
   Modes/                            one folder per mode
     DefaultMode/
@@ -264,14 +264,14 @@ The one exception is **player resources**: values that are spent and regenerate,
 
 It holds two kinds of property, written by different owners:
 
-- **Settings** are owned by the `PhysicsProvider` scene component and follow the three-file rule in `Assets/Src/Services/CLAUDE.md`. Nothing else writes them at runtime.
+- **Settings** are owned by the `PhysicsProvider` scene component and follow the three-file rule in `Examples/Services/CLAUDE.md`. Nothing else writes them at runtime.
 - **Runtime state** is owned by the movement states, plus `Position`, which `MovementMotor` writes after each `Move()`. It must never appear in `PhysicsProvider`, which reasserts everything it knows every frame.
 
 ## Conventions
 
 - **Do not add a class to hold shared behaviour.** The four layers are the whole vocabulary, and a new class is warranted only when it is a new *concept* — another mode, provider, or state — never when it is a home for a helper. **`PhysicsUtilities` is the one exception** (see the root `CLAUDE.md`): static functions that take specific values, never a context, and resolve one physics task for a state (`CapsuleSegment()`, `FindGround()`, `SurfaceVelocity()`, `TryMeasureSeparation()`, `AirAccelerate()`). State bookkeeping such as `UpdateJumpBuffer()` reads input and writes the context, so it is not physics and stays in the state. An intermediate base such as a `VerticalMovementState` between `MovementState` and the vertical states is the wrong answer: it adds a layer to a framework whose layers are the thing you have to hold in your head, plus a file and a `.meta`, to save a few lines.
 - **`MovementState` and `MovementProvider` are contracts, not toolboxes.** `MovementState` declares `Start`/`Process`/`End`/`Switch` and holds the provider reference; that is all it may hold. Behaviour belongs in the concrete state that performs it, even when two states perform something similar — see the duplicated `UpdateJumpBuffer()` in `FallingState` and `JumpingState`. Shared *data* goes on `PhysicsContext`; shared *behaviour* is duplicated or left out, whichever the state genuinely needs. A helper on the base is reachable from every state in every provider, which is how a per-provider concern gets run twice a step.
-- **The handler interfaces are vestigial.** `IRotationHandler` and `ICameraRotationHandler` are implemented by `RotatingState`, and `IMovementHandler` by nothing. Do not implement them in new states or add new ones.
+- **States are driven only through `Start`/`Process`/`End`/`Switch`.** Do not add a per-concern interface for states to implement, such as an `IRotationHandler`: nothing calls through it. The old handler interfaces were removed for that reason.
 
 ## Known gaps
 

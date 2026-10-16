@@ -97,7 +97,7 @@ namespace Radknee.MovementFramework
         Quaternion CameraRotation { get; set; }
 
         /// <summary>
-        /// Where the latest physics step left the character, written by MovementController after
+        /// Where the latest physics step left the character, written by MovementMotor after
         /// each move. Read this, not the transform, which holds the drawn pose between steps.
         /// Runtime state; PhysicsProvider must never write it.
         /// </summary>

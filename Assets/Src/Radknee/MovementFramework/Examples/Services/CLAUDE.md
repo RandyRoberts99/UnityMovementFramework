@@ -26,7 +26,7 @@ Framework infrastructure: the service locator, the services that fill the moveme
 
 **`CrouchPressed` and `JumpReleased` are not safe to use as they are.** Each is assigned from an unlatched edge (`InputAction.triggered` and `WasReleasedThisFrame()`), so a state reading it in FixedUpdate will miss presses. Nothing reads either yet. Before a state consumes one, convert it the way `JumpPressed` works: latch it here and clear it in the consuming state. If crouch is really a hold, assign it from `IsPressed()` as a level instead, as `SprintHeld` is. The jump cut does not need `JumpReleased`: it reads the `JumpHeld` level.
 
-Known leak, not to be copied: `InputService` hardcodes the sample's map name. New service code must not reference sample types; the shared namespace does not stop it, so check by folder.
+Known leak, not to be copied: `InputService` hardcodes the sample's map name. New service code must not reference sample types. Services share the sample's assembly, so the compiler does not stop it; check by folder.
 
 ## Player values (planned)
 
